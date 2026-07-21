@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: da8a0169335dfa94a81621ae3e87a4d5
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - sonidoRuptura1: {fileID: 8300000, guid: 3b7e3120442540f44b099424bde9067d, type: 3}
+  - sonidoRuptura2: {fileID: 8300000, guid: 40f8e1e9c1fc2034a94f186e628d0431, type: 3}
+  - sonidoRuptura3: {fileID: 8300000, guid: f4f80d33ebf18af44b9a843018c9f65a, type: 3}
+  - sonidoRuptura4: {fileID: 8300000, guid: 67ca7b56c39ad5046a4c9ffd0534831d, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
