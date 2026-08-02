@@ -137,4 +137,29 @@ public class SkinManager : MonoBehaviour
 
     // -------------------------------------------------------
     public Material GetMaterialSeleccionado() => materialSeleccionado;
+
+    // -------------------------------------------------------
+    /// <summary>
+    /// Devuelve el material de la skin en el índice indicado.
+    /// Reutiliza la misma lógica de SeleccionarSkin() sin cambiar la skin activa.
+    /// Útil para aplicar skins a la raqueta del CPU en modo torneo.
+    /// </summary>
+    public Material GetSkinMaterial(int index)
+    {
+        if (index < 0 || index >= skinsPrefabs.Count) return null;
+        Renderer rend = skinsPrefabs[index].GetComponentInChildren<Renderer>();
+        return rend != null ? rend.sharedMaterial : null;
+    }
+
+    // -------------------------------------------------------
+    /// <summary>
+    /// Devuelve el prefab completo de skin en el índice indicado.
+    /// Útil para instanciar el modelo completo (mesh + materiales + jerarquía)
+    /// en la raqueta del CPU durante el modo torneo.
+    /// </summary>
+    public GameObject GetSkinPrefab(int index)
+    {
+        if (index < 0 || index >= skinsPrefabs.Count) return null;
+        return skinsPrefabs[index];
+    }
 }

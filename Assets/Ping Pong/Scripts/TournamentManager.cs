@@ -28,6 +28,10 @@ public class TournamentManager
     public Ronda RondaActual { get; private set; }
     public Competidor Campeon { get; private set; }
 
+    // ─── Evento para notificar a la UI ───
+    /// <summary>Se dispara cuando se registra un resultado o cambia la ronda.</summary>
+    public event System.Action OnTorneoActualizado;
+
     // ─── Constructor ───
     public TournamentManager()
     {
@@ -41,6 +45,14 @@ public class TournamentManager
     /// </summary>
     public void CrearNuevoTorneo()
     {
+        // 0. Limpiar estado del torneo anterior antes de generar uno nuevo
+        if (Octavos != null) Octavos.Clear();
+        if (Cuartos != null) Cuartos.Clear();
+        if (Semifinales != null) Semifinales.Clear();
+        Final = null;
+        Campeon = null;
+        RondaActual = Ronda.Octavos;
+
         // 1. Crear lista de 16 competidores
         Competidores = new List<Competidor>(16);
 
@@ -59,20 +71,30 @@ public class TournamentManager
         // 3. Asignar dificultades por ronda a cada CPU
         AsignarDificultadesPorRonda();
 
-        // 4. Inicializar listas de partidos
+        // 4. Asignar skinID secuencial a cada CPU (0 a 14, en el orden que quedaron tras mezclar)
+        for (int i = 1; i < Competidores.Count; i++)
+        {
+            Competidores[i].skinID = i - 1;
+            Debug.Log($"[TournamentManager] CPU '{Competidores[i].nombre}' -> skinID={Competidores[i].skinID}");
+        }
+
+        // 5. Inicializar listas de partidos
         Octavos = new List<Match>(8);
         Cuartos = new List<Match>(4);
         Semifinales = new List<Match>(2);
         Final = null;
 
-        // 5. Generar octavos
+        // 6. Generar octavos
         RondaActual = Ronda.Octavos;
         GenerarOctavos();
+
+        // Notificar a la UI
+        OnTorneoActualizado?.Invoke();
 
         Debug.Log("[TournamentManager] Torneo creado. Bracket:");
         foreach (var c in Competidores)
         {
-            Debug.Log($"  {c.nombre} | Jugador: {c.esJugador} | Dificultad: {c.dificultad}");
+            Debug.Log($"  {c.nombre} | skinID: {c.skinID}");
         }
         Debug.Log($"[TournamentManager] Octavos generados: {Octavos.Count} partidos.");
     }
@@ -83,9 +105,8 @@ public class TournamentManager
     /// </summary>
     public void MezclarCPUs()
     {
-        // Mezclar desde índice 1 hasta 15 (dejando al jugador en 0)
         int inicio = 1;
-        int cantidad = Competidores.Count - inicio; // 15
+        int cantidad = Competidores.Count - inicio;
 
         for (int i = 0; i < cantidad; i++)
         {
@@ -100,35 +121,16 @@ public class TournamentManager
     }
 
     // ─── AsignarDificultadesPorRonda ───
-    /// <summary>
-    /// Asigna la dificultad a cada CPU según la ronda en la que potencialmente
-    /// se enfrentarían al jugador en un bracket estándar.
-    /// Octavos = Fácil, Cuartos = Media, Semifinal = Difícil, Final = Inhumano.
-    /// </summary>
     private void AsignarDificultadesPorRonda()
     {
-        // Bracket estándar con seeds 1-16.
-        // Jugador es seed 1 (índice 0).
-        // Tras mezclar, asignamos según la posición relativa en el bracket:
-        //   - Oponente directo del jugador en octavos (seed 16, índice 15) -> Fácil
-        //   - Potencial oponente en cuartos (semillas 8-9, índices 7-8) -> Media
-        //   - Potencial oponente en semifinal (semillas 4-5, 12-13) -> Difícil
-        //   - Resto (lado lejano del bracket) -> Inhumano
-
-        // Por defecto todo el lado lejano es Inhumano
         for (int i = 1; i < Competidores.Count; i++)
         {
             Competidores[i].dificultad = DificultadCPU.Inhumano;
         }
 
-        // Oponente directo del jugador en octavos (índice 15) -> Fácil
         Competidores[15].dificultad = DificultadCPU.Facil;
-
-        // Potencial oponente en cuartos (índices 7 y 8) -> Media
         Competidores[7].dificultad = DificultadCPU.Media;
         Competidores[8].dificultad = DificultadCPU.Media;
-
-        // Potencial oponente en semifinal (índices 3, 4, 11, 12) -> Difícil
         Competidores[3].dificultad = DificultadCPU.Dificil;
         Competidores[4].dificultad = DificultadCPU.Dificil;
         Competidores[11].dificultad = DificultadCPU.Dificil;
@@ -136,22 +138,18 @@ public class TournamentManager
     }
 
     // ─── GenerarOctavos ───
-    /// <summary>
-    /// Genera los 8 partidos de octavos emparejando 1vs16, 2vs15, etc.
-    /// </summary>
     public void GenerarOctavos()
     {
         Octavos.Clear();
 
-        // Bracket estándar: seed 1 vs seed 16, seed 2 vs seed 15, etc.
-        Octavos.Add(new Match(Competidores[0], Competidores[15])); // Partido 1: Jugador vs seed 16
-        Octavos.Add(new Match(Competidores[7], Competidores[8]));  // Partido 2: seed 8 vs seed 9
-        Octavos.Add(new Match(Competidores[3], Competidores[12])); // Partido 3: seed 4 vs seed 13
-        Octavos.Add(new Match(Competidores[4], Competidores[11])); // Partido 4: seed 5 vs seed 12
-        Octavos.Add(new Match(Competidores[1], Competidores[14])); // Partido 5: seed 2 vs seed 15
-        Octavos.Add(new Match(Competidores[6], Competidores[9]));  // Partido 6: seed 7 vs seed 10
-        Octavos.Add(new Match(Competidores[2], Competidores[13])); // Partido 7: seed 3 vs seed 14
-        Octavos.Add(new Match(Competidores[5], Competidores[10])); // Partido 8: seed 6 vs seed 11
+        Octavos.Add(new Match(Competidores[0], Competidores[15]));
+        Octavos.Add(new Match(Competidores[7], Competidores[8]));
+        Octavos.Add(new Match(Competidores[3], Competidores[12]));
+        Octavos.Add(new Match(Competidores[4], Competidores[11]));
+        Octavos.Add(new Match(Competidores[1], Competidores[14]));
+        Octavos.Add(new Match(Competidores[6], Competidores[9]));
+        Octavos.Add(new Match(Competidores[2], Competidores[13]));
+        Octavos.Add(new Match(Competidores[5], Competidores[10]));
 
         Debug.Log("[TournamentManager] Octavos generados:");
         for (int i = 0; i < Octavos.Count; i++)
@@ -161,10 +159,6 @@ public class TournamentManager
     }
 
     // ─── RegistrarGanador ───
-    /// <summary>
-    /// Registra al ganador de un partido específico.
-    /// Si todos los partidos de la ronda actual están jugados, avanza automáticamente.
-    /// </summary>
     public void RegistrarGanador(Match match, Competidor ganador)
     {
         if (match == null || ganador == null)
@@ -190,7 +184,10 @@ public class TournamentManager
 
         Debug.Log($"[TournamentManager] Partido registrado: {match}");
 
-        // Verificar si la ronda actual está completa y avanzar
+        SimularPartidosCPU();
+
+        OnTorneoActualizado?.Invoke();
+
         switch (RondaActual)
         {
             case Ronda.Octavos:
@@ -220,9 +217,6 @@ public class TournamentManager
     }
 
     // ─── AvanzarRonda ───
-    /// <summary>
-    /// Avanza a la siguiente ronda usando los ganadores de la ronda actual.
-    /// </summary>
     public void AvanzarRonda()
     {
         switch (RondaActual)
@@ -260,9 +254,30 @@ public class TournamentManager
                 Debug.Log("[TournamentManager] Avanzando a la Final.");
                 break;
         }
+
+        OnTorneoActualizado?.Invoke();
     }
 
-    // ─── ObtenerGanadores (helper) ───
+    // ─── SimularPartidosCPU ───
+    private void SimularPartidosCPU()
+    {
+        List<Match> partidosRonda = ObtenerPartidosRondaActual();
+        if (partidosRonda == null) return;
+
+        foreach (var m in partidosRonda)
+        {
+            if (m == null || m.jugado) continue;
+            if (m.jugadorA == null || m.jugadorB == null) continue;
+            if (m.jugadorA.esJugador || m.jugadorB.esJugador) continue;
+
+            m.ganador = Random.Range(0, 2) == 0 ? m.jugadorA : m.jugadorB;
+            m.jugado = true;
+
+            Debug.Log($"[TournamentManager] CPU simulado: {m}");
+        }
+    }
+
+    // ─── Helpers ───
     private List<Competidor> ObtenerGanadores(List<Match> partidos)
     {
         var ganadores = new List<Competidor>();
@@ -274,17 +289,8 @@ public class TournamentManager
         return ganadores;
     }
 
-    // ─── ObtenerRondaActual ───
-    public Ronda ObtenerRondaActual()
-    {
-        return RondaActual;
-    }
+    public Ronda ObtenerRondaActual() => RondaActual;
 
-    // ─── ObtenerPartidoDelJugador ───
-    /// <summary>
-    /// Devuelve el partido de la ronda actual donde participa el jugador humano.
-    /// Retorna null si no hay partido pendiente del jugador.
-    /// </summary>
     public Match ObtenerPartidoDelJugador()
     {
         List<Match> partidosRonda = ObtenerPartidosRondaActual();
@@ -299,14 +305,9 @@ public class TournamentManager
                 return match;
             }
         }
-
         return null;
     }
 
-    // ─── ObtenerPartidosRondaActual ───
-    /// <summary>
-    /// Devuelve la lista de partidos de la ronda actual.
-    /// </summary>
     public List<Match> ObtenerPartidosRondaActual()
     {
         switch (RondaActual)
@@ -319,11 +320,6 @@ public class TournamentManager
         }
     }
 
-    // ─── ObtenerDificultadParaRondaActual ───
-    /// <summary>
-    /// Devuelve la dificultad que debería tener el CPU según la ronda actual.
-    /// Octavos = Fácil, Cuartos = Media, Semifinal = Difícil, Final = Inhumano.
-    /// </summary>
     public DificultadCPU ObtenerDificultadParaRondaActual()
     {
         switch (RondaActual)
@@ -336,10 +332,6 @@ public class TournamentManager
         }
     }
 
-    // ─── ObtenerResumen ───
-    /// <summary>
-    /// Devuelve un resumen del estado actual del torneo.
-    /// </summary>
     public string ObtenerResumen()
     {
         string res = $"=== TORNEO ===\nRonda: {RondaActual}\n";

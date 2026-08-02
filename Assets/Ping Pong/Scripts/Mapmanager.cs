@@ -152,6 +152,40 @@ public class MapManager : MonoBehaviour
     public void SeleccionarLava()       { mapaSeleccionado = 6; InstanciarMapa(mapaLava); }
     public void SeleccionarPractica()   { mapaSeleccionado = 7; InstanciarMapa(mapaPractica); }
 
+    // ─── Selección aleatoria de mapa (para torneo) ───
+    private static int ultimoMapaTorneo = -1;
+
+    /// <summary>
+    /// Selecciona un mapa aleatorio (índice 0-6, excluye práctica).
+    /// No repite el mismo mapa de la última llamada.
+    /// </summary>
+    /// <returns>El índice del mapa seleccionado (0-6).</returns>
+    public int SeleccionarMapaAleatorio()
+    {
+        int nuevoMapa;
+        do
+        {
+            nuevoMapa = Random.Range(0, 7);
+        } while (nuevoMapa == ultimoMapaTorneo && ultimoMapaTorneo >= 0);
+
+        int anterior = ultimoMapaTorneo;
+        ultimoMapaTorneo = nuevoMapa;
+
+        switch (nuevoMapa)
+        {
+            case 0: SeleccionarHabitacion();    break;
+            case 1: SeleccionarHabitacionJavi(); break;
+            case 2: SeleccionarInfinito();      break;
+            case 3: SeleccionarNube();          break;
+            case 4: SeleccionarSpace();         break;
+            case 5: SeleccionarHielo();         break;
+            case 6: SeleccionarLava();          break;
+        }
+
+        Debug.Log($"[MapManager] Mapa torneo: {nuevoMapa} (anterior: {(anterior >= 0 ? anterior.ToString() : "ninguno")})");
+        return nuevoMapa;
+    }
+
     // -------------------------------------------------------
     void InstanciarMapa(ConfigMapa config)
     {

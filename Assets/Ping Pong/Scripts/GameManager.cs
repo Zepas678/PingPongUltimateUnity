@@ -62,6 +62,26 @@ public class GameManager : MonoBehaviour
     private int  cpuScore    = 0;
     private bool gameOver    = false;
 
+    // ─── Modo Torneo ───
+    /// <summary>Indica si la partida actual pertenece al modo torneo.</summary>
+    public bool esModoTorneo = false;
+
+#if UNITY_EDITOR
+    [Header("Debug (Solo Editor)")]
+    /// <summary>Activa las herramientas de depuración del torneo en el Editor.</summary>
+    public bool debugMode = false;
+
+    /// <summary>Marca para finalizar la partida como victoria del jugador (solo con debugMode activo).</summary>
+    public bool debugWin = false;
+
+    /// <summary>Marca para finalizar la partida como derrota del jugador (solo con debugMode activo).</summary>
+    public bool debugLose = false;
+
+    // Estado anterior para detectar cambios (flanco de subida)
+    private bool prevDebugWin = false;
+    private bool prevDebugLose = false;
+#endif
+
     // -------------------------------------------------------
     void Awake()
     {
@@ -88,6 +108,51 @@ public class GameManager : MonoBehaviour
     if (ball != null)
         ball.CongelarPelota();
     }
+
+    // -------------------------------------------------------
+#if UNITY_EDITOR
+    void Update()
+    {
+        if (!Application.isPlaying) return;
+        if (!debugMode) return;
+
+        // Detectar flanco de subida en debugWin
+        if (debugWin && !prevDebugWin)
+        {
+            debugWin = false;
+            prevDebugWin = false;
+
+            if (gameOver) return;
+
+            // Forzar puntuación para que EndGame vea que el jugador ganó
+            playerScore = pointsToWin;
+            cpuScore = 0;
+            UpdateUI();
+            EndGame("¡Ganaste! (Debug)");
+            return;
+        }
+
+        // Detectar flanco de subida en debugLose
+        if (debugLose && !prevDebugLose)
+        {
+            debugLose = false;
+            prevDebugLose = false;
+
+            if (gameOver) return;
+
+            // Forzar puntuación para que EndGame vea que el CPU ganó
+            playerScore = 0;
+            cpuScore = pointsToWin;
+            UpdateUI();
+            EndGame("CPU gana (Debug)");
+            return;
+        }
+
+        // Actualizar estado anterior
+        prevDebugWin = debugWin;
+        prevDebugLose = debugLose;
+    }
+#endif
 
     // -------------------------------------------------------
     public void RegisterPoint(bool scoredForPlayer, float velocidadPelota = 0f)
@@ -193,7 +258,28 @@ public class GameManager : MonoBehaviour
         ActivarVolcanes(true, continuo: true);
 
         bool ganoJugador = playerScore > cpuScore;
-        UIManager.Instance?.MostrarGameOver(ganoJugador);
+
+        // Si es modo torneo, registrar el resultado automáticamente
+        if (esModoTorneo)
+        {
+            Match partido = TournamentUIManager.PartidoActualJugando;
+            TournamentManager tm = TournamentUIManager.TorneoActual;
+            if (partido != null && tm != null && !partido.jugado)
+            {
+                // Determinar quién ganó (el Competidor que NO es el jugador si perdió, o el jugador si ganó)
+                Competidor ganador = ganoJugador
+                    ? (partido.jugadorA?.esJugador == true ? partido.jugadorA : partido.jugadorB)
+                    : (partido.jugadorA?.esJugador == true ? partido.jugadorB : partido.jugadorA);
+
+                if (ganador != null)
+                {
+                    tm.RegistrarGanador(partido, ganador);
+                    Debug.Log($"[GameManager] Torneo: {ganador.nombre} ganó el partido.");
+                }
+            }
+        }
+
+        UIManager.Instance?.MostrarGameOver(ganoJugador, esModoTorneo);
     }
 
     // -------------------------------------------------------
@@ -228,6 +314,104 @@ public class GameManager : MonoBehaviour
 
         if (ball != null)
             ball.ResetBall();
+    }
+
+    // -------------------------------------------------------
+    /// <summary>
+    /// Inicia una partida de torneo. Lee el partido desde TournamentUIManager,
+    /// configura la dificultad según el rival y elige un mapa aleatorio.
+    /// </summary>
+    public void IniciarPartidaTorneo()
+    {
+        Debug.Log("[GameManager.IniciarPartidaTorneo] === INICIO ===");
+
+        Match partido = TournamentUIManager.PartidoActualJugando;
+        if (partido == null)
+        {
+            Debug.LogError("[GameManager.IniciarPartidaTorneo] ERROR: PartidoActualJugando es null.");
+            return;
+        }
+        Debug.Log($"[GameManager.IniciarPartidaTorneo] Partido encontrado: {partido}");
+
+        DestroyPracticeModeObjects();
+
+        esModoPvP     = false;
+        esModoTorneo  = true;
+        playerScore   = 0;
+        cpuScore      = 0;
+        gameOver      = false;
+        Debug.Log("[GameManager.IniciarPartidaTorneo] Scores reiniciados. Modo torneo activado.");
+
+        if (cpu != null)                cpu.enabled             = true;
+        if (cpuControl != null)         cpuControl.enabled      = true;
+        if (controlJugador2 != null)    controlJugador2.enabled = false;
+        if (golpeRaquetaCPU != null)    golpeRaquetaCPU.esJugador = false;
+        Debug.Log("[GameManager.IniciarPartidaTorneo] CPU activado, P2 desactivado.");
+
+        // Determinar rival (el que NO es jugador)
+        Competidor rival = null;
+        if (partido.jugadorA != null && partido.jugadorA.esJugador)
+            rival = partido.jugadorB;
+        else if (partido.jugadorB != null && partido.jugadorB.esJugador)
+            rival = partido.jugadorA;
+
+        if (rival == null)
+        {
+            Debug.LogError("[GameManager.IniciarPartidaTorneo] ERROR: No se pudo determinar el rival.");
+            return;
+        }
+        Debug.Log($"[GameManager.IniciarPartidaTorneo] Rival: {rival.nombre} | Dificultad: {rival.dificultad}");
+
+        // Configurar dificultad según la del rival
+        switch (rival.dificultad)
+        {
+            case DificultadCPU.Facil:    dificultadSeleccionada = Dificultad.Facil;    break;
+            case DificultadCPU.Media:    dificultadSeleccionada = Dificultad.Facil;    break;
+            case DificultadCPU.Dificil:  dificultadSeleccionada = Dificultad.Dificil;  break;
+            case DificultadCPU.Inhumano: dificultadSeleccionada = Dificultad.Inhumano; break;
+        }
+        Debug.Log($"[GameManager.IniciarPartidaTorneo] Dificultad asignada: {dificultadSeleccionada}");
+
+        if (cpu != null)
+            cpu.SetDificultad(dificultadSeleccionada);
+
+        // Buscar skin del rival por nombre y copiar solo el material (solo torneo)
+        if (TournamentUIManager.Instance != null && golpeRaquetaCPU != null)
+        {
+            Material materialSkin = null;
+            foreach (var skin in TournamentUIManager.Instance.skinsCPU)
+            {
+                if (skin != null && skin.nombreCPU == rival.nombre && skin.skinPrefab != null)
+                {
+                    Renderer rend = skin.skinPrefab.GetComponentInChildren<Renderer>();
+                    if (rend != null)
+                        materialSkin = rend.sharedMaterial;
+                    break;
+                }
+            }
+            if (materialSkin != null)
+                golpeRaquetaCPU.AplicarMaterial(materialSkin);
+        }
+
+        // Mapa aleatorio sin repetir el anterior (solo para torneo)
+        if (MapManager.Instance != null)
+        {
+            MapManager.Instance.SeleccionarMapaAleatorio();
+        }
+        else
+        {
+            Debug.LogWarning("[GameManager.IniciarPartidaTorneo] MapManager.Instance es null, no se cambió el mapa.");
+        }
+
+        UpdateUI();
+
+        if (ball != null)
+            ball.ResetBall();
+        else
+            Debug.LogWarning("[GameManager.IniciarPartidaTorneo] ball es null, no se reseteó.");
+
+        Debug.Log($"[GameManager.IniciarPartidaTorneo] Partida iniciada vs {rival.nombre} (dif: {dificultadSeleccionada})");
+        Debug.Log("[GameManager.IniciarPartidaTorneo] === FIN ===");
     }
 
     // -------------------------------------------------------

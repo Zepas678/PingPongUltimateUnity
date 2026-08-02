@@ -201,6 +201,17 @@ public class RaquetaGolpe : MonoBehaviour
     }
 
     // -------------------------------------------------------
+    /// <summary>
+    /// Cambia el material de la raqueta sin modificar el prefab completo.
+    /// Usado por el modo torneo para aplicar skins a la raqueta del CPU.
+    /// </summary>
+    public void AplicarMaterial(Material material)
+    {
+        if (meshRenderer != null)
+            meshRenderer.material = material;
+    }
+
+    // -------------------------------------------------------
     public bool EstaDestruida  => destruida;
     public bool BotonPresionado => botonPresionado;
 }

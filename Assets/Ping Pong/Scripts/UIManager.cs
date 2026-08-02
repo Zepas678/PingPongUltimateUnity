@@ -15,6 +15,8 @@ public class UIManager : MonoBehaviour
     public GameObject panelDificultad;
     public GameObject panelPausa;
     public GameObject panelGameOver;
+    [Header("Panel Torneo")]
+    public GameObject panelTorneo;
 
     [Header("Marcador")]
     public TMP_Text scoreJugador;
@@ -27,6 +29,9 @@ public class UIManager : MonoBehaviour
     [Header("Game Over")]
     public TMP_Text gameOverTexto;
     public TMP_Text gameOverMarcadorFinal;
+    public GameObject botonReintentar;
+    public GameObject botonContinuarTorneo;
+    public GameObject botonNuevoTorneo;
 
     [Header("Nombre del jugador")]
     public string nombreJugador = "Jugador";
@@ -49,7 +54,7 @@ public class UIManager : MonoBehaviour
     }
 
     // -------------------------------------------------------
-    void MostrarPanel(GameObject panel)
+    public void MostrarPanel(GameObject panel)
     {
         panelHUD?.SetActive(false);
         panelMenuPrincipal?.SetActive(false);
@@ -59,6 +64,7 @@ public class UIManager : MonoBehaviour
         panelDificultad?.SetActive(false);
         panelPausa?.SetActive(false);
         panelGameOver?.SetActive(false);
+        panelTorneo?.SetActive(false);
         panel?.SetActive(true);
     }
 
@@ -109,6 +115,13 @@ public class UIManager : MonoBehaviour
     {
         esperandoMapaPvP = true;
         MostrarPanel(panelMapas);
+    }
+
+    // --- Card Torneo ---
+    public void OnClickModoTorneo()
+    {
+        Debug.Log("[UIManager] Abriendo panel de torneo.");
+        MostrarPanel(panelTorneo);
     }
 
     // --- Cards no implementados ---
@@ -226,6 +239,41 @@ public class UIManager : MonoBehaviour
     }
 
     // -------------------------------------------------------
+    /// <summary>Llamado por el botón Continuar del Game Over en modo torneo.</summary>
+    public void OnClickContinuarTorneo()
+    {
+        Debug.Log("[UIManager] Continuar torneo presionado.");
+
+        // Detener volcanes y restaurar time scale
+        GameManager.Instance?.DetenerVolcanes();
+        Time.timeScale = 1f;
+
+        // Volver al panel del torneo para ver el bracket actualizado
+        MostrarPanel(panelTorneo);
+    }
+
+    // -------------------------------------------------------
+    /// <summary>Llamado por el botón Nuevo Torneo cuando el jugador fue eliminado o ganó.</summary>
+    public void OnClickNuevoTorneo()
+    {
+        Debug.Log("[UIManager] Nuevo Torneo presionado.");
+
+        // Detener volcanes y restaurar time scale
+        GameManager.Instance?.DetenerVolcanes();
+        Time.timeScale = 1f;
+
+        // Reiniciar el torneo con nuevos competidores
+        // CrearNuevoTorneo() ya invoca OnTorneoActualizado, el bracket se actualiza solo
+        if (TournamentUIManager.TorneoActual != null)
+        {
+            TournamentUIManager.TorneoActual.CrearNuevoTorneo();
+        }
+
+        // Mostrar el panel del torneo
+        MostrarPanel(panelTorneo);
+    }
+
+    // -------------------------------------------------------
     public void ActualizarMarcador(int puntosJugador, int puntosCPU)
     {
         if (scoreJugador != null) scoreJugador.text = puntosJugador.ToString();
@@ -281,7 +329,7 @@ public class UIManager : MonoBehaviour
     }
 
     // -------------------------------------------------------
-    public void MostrarGameOver(bool ganoJugador)
+    public void MostrarGameOver(bool ganoJugador, bool esTorneo = false)
     {
         MostrarPanel(panelGameOver);
 
@@ -292,5 +340,30 @@ public class UIManager : MonoBehaviour
 
         if (gameOverMarcadorFinal != null && GameManager.Instance != null)
             gameOverMarcadorFinal.text = $"{GameManager.Instance.PlayerScore}  —  {GameManager.Instance.CpuScore}";
+
+        if (!esTorneo)
+        {
+            // Modo normal: solo botón Reintentar
+            if (botonReintentar != null)        botonReintentar.SetActive(true);
+            if (botonContinuarTorneo != null)   botonContinuarTorneo.SetActive(false);
+            if (botonNuevoTorneo != null)       botonNuevoTorneo.SetActive(false);
+        }
+        else
+        {
+            // Modo torneo: determinar si el jugador sigue vivo o fue eliminado
+            bool torneoTerminado = TournamentUIManager.TorneoActual != null
+                && TournamentUIManager.TorneoActual.RondaActual == TournamentManager.Ronda.Terminado;
+
+            bool jugadorTienePartido = TournamentUIManager.TorneoActual != null
+                && TournamentUIManager.TorneoActual.ObtenerPartidoDelJugador() != null;
+
+            // ObtenerPartidoDelJugador() solo devuelve partidos con !jugado.
+            // Si no hay partido pendiente y el torneo no terminó, el jugador fue eliminado.
+            bool mostrarNuevoTorneo = torneoTerminado || (!jugadorTienePartido && !torneoTerminado);
+
+            if (botonReintentar != null)        botonReintentar.SetActive(false);
+            if (botonContinuarTorneo != null)   botonContinuarTorneo.SetActive(!mostrarNuevoTorneo);
+            if (botonNuevoTorneo != null)       botonNuevoTorneo.SetActive(mostrarNuevoTorneo);
+        }
     }
 }
