@@ -152,6 +152,38 @@ public class MapManager : MonoBehaviour
     public void SeleccionarLava()       { mapaSeleccionado = 6; InstanciarMapa(mapaLava); }
     public void SeleccionarPractica()   { mapaSeleccionado = 7; InstanciarMapa(mapaPractica); }
 
+    // ─── Selección de mapa por nombre (para jefes) ───
+    /// <summary>
+    /// Selecciona un mapa por su nombre, reutilizando los métodos de selección existentes.
+    /// </summary>
+    /// <param name="nombre">Nombre del mapa (ej: "Mapa Nube").</param>
+    /// <returns>true si el mapa fue encontrado y seleccionado; false si no existe.</returns>
+    public bool SeleccionarMapaPorNombre(string nombre)
+    {
+        Debug.Log($"[MapManager] 2. SeleccionarMapaPorNombre(\"{nombre}\")");
+        if (string.IsNullOrEmpty(nombre))
+        {
+            Debug.LogWarning("[MapManager] Nombre de mapa vacío o nulo.");
+            return false;
+        }
+
+        switch (nombre)
+        {
+            case "Habitación Vacía":        SeleccionarHabitacion();    return true;
+            case "Habitacion de javi":      SeleccionarHabitacionJavi(); return true;
+            case "Mapa Infinito":           SeleccionarInfinito();      return true;
+            case "Mapa Nube":               SeleccionarNube();          return true;
+            case "MapaNubesV11":            SeleccionarNube();          return true;
+            case "Space":                   SeleccionarSpace();         return true;
+            case "Hielo":                   SeleccionarHielo();         return true;
+            case "Lava":                    SeleccionarLava();          return true;
+            case "Habitación Práctica":     SeleccionarPractica();      return true;
+            default:
+                Debug.LogWarning("[MapManager] No existe un mapa con el nombre: " + nombre);
+                return false;
+        }
+    }
+
     // ─── Selección aleatoria de mapa (para torneo) ───
     private static int ultimoMapaTorneo = -1;
 

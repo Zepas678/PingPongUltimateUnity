@@ -1,0 +1,2 @@
+﻿C:\Users\señor zea\My project (1)\Assets\Ping Pong\Objetos\untitled1.fbx.meta
+PREFAB=C:\Users\señor zea\My project (1)\Assets\Ping Pong\Objetos\untitled1.fbx

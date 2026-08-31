@@ -1,0 +1,46 @@
+﻿G=c9fdcbe4be9511445a595599c1fe6eeb -> C:\Users\señor zea\My project (1)\Assets\Prefabs\RayoZeus 1.prefab.meta
+G=24375ced84f4d444a89105876eb0a7a5 -> C:\Users\señor zea\My project (1)\Assets\Ping Pong\Sonidos\universfield-loud-thunder-192165.mp3.meta
+G=58e97291f20aec840bfe57e8d629b038 -> C:\Users\señor zea\My project (1)\Assets\Prefabs\Rayo advertencia.prefab.meta
+G=12725187694770946a38d68c4ea7e91a -> C:\Users\señor zea\My project (1)\Assets\Prefabs\jefes\raquetaZeus.fbx.meta
+=== FileID 1736423498 (golpeRaquetaCPU) en escena ===
+[32262] --- !u!114 &1736423498
+[32263] MonoBehaviour:
+[32264]   m_ObjectHideFlags: 0
+[32265]   m_CorrespondingSourceObject: {fileID: 0}
+[32266]   m_PrefabInstance: {fileID: 0}
+[32267]   m_PrefabAsset: {fileID: 0}
+[32268]   m_GameObject: {fileID: 1736423481}
+[32269]   m_Enabled: 1
+[32270]   m_EditorHideFlags: 0
+[32271]   m_Script: {fileID: 11500000, guid: da8a0169335dfa94a81621ae3e87a4d5, type: 3}
+[32272]   m_Name: 
+[32273]   m_EditorClassIdentifier: 
+[32274]   velocidadDestruccion: 110
+[32275]   ventanaTiempo: 0.3
+[32276]   multiplicadorGolpe: 1.2
+[32277]   extraTamanoCollider: 0.5
+[32278]   esJugador: 0
+[32279] --- !u!114 &1736423501
+[32280] MonoBehaviour:
+[32281]   m_ObjectHideFlags: 0
+[32282]   m_CorrespondingSourceObject: {fileID: 0}
+[32283]   m_PrefabInstance: {fileID: 0}
+[32284]   m_PrefabAsset: {fileID: 0}
+[32285]   m_GameObject: {fileID: 1736423481}
+[32286]   m_Enabled: 0
+[32287]   m_EditorHideFlags: 0
+[32288]   m_Script: {fileID: 11500000, guid: f3358700ba31ec04a8ef594a7dd2931f, type: 3}
+[32289]   m_Name: 
+[32290]   m_EditorClassIdentifier: 
+[32291]   zIzquierda: 20
+[32292]   zCentro: 0
+[32293]   zDerecha: -20
+[32294]   velocidad: 400
+[32295] --- !u!114 &1736423502
+[32296] MonoBehaviour:
+[32297]   m_ObjectHideFlags: 0
+[32298]   m_CorrespondingSourceObject: {fileID: 0}
+[32299]   m_PrefabInstance: {fileID: 0}
+[32300]   m_PrefabAsset: {fileID: 0}
+[32301]   m_GameObject: {fileID: 1736423481}
+[32302]   m_Enabled: 0

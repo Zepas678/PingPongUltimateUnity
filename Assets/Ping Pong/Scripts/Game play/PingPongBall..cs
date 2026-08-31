@@ -120,6 +120,11 @@ public class PingPongBall : MonoBehaviour
     // -------------------------------------------------------
     void HandleRacketCollision(Collision collision)
     {
+        // Capturar la dirección X de la pelota ANTES de aplicar el rebote/golpe.
+        // La CPU cambia la dirección a +X al golpear, por lo que esta es la
+        // dirección REAL con la que la pelota llegó a la raqueta.
+        float velocidadXAntesDelGolpe = rb.linearVelocity.x;
+
         currentSpeed = Mathf.Min(currentSpeed + speedIncreasePerHit, maxSpeed);
         directionX  *= -1f;
 
@@ -175,6 +180,18 @@ public class PingPongBall : MonoBehaviour
         // Registrar combo — quién golpeó y a qué velocidad
         bool fueGolpeJugador = raquetaGolpe != null && raquetaGolpe.esJugador;
         ComboManager.Instance?.RegistrarGolpe(fueGolpeJugador, currentSpeed);
+
+        // ── DIAGNÓSTICO TEMPORAL: cada golpe de raqueta ──
+        BossZeus bossZeusDiag = FindObjectOfType<BossZeus>();
+        Debug.Log($"[DIAG GOLPE] raqueta='{collision.gameObject.name}' | fueGolpeJugador={fueGolpeJugador} | X_ANTES={velocidadXAntesDelGolpe:F2} | X_DESPUES={rb.linearVelocity.x:F2} | velocidad={rb.linearVelocity} | llamarBossZeus={!fueGolpeJugador} | bossZeusExiste={(bossZeusDiag != null)} | estrellaEsperando={(bossZeusDiag != null ? bossZeusDiag.EstrellaEsperandoGolpeDiag : false)} | teleTP={(bossZeusDiag != null ? bossZeusDiag.TeletransporteEnProgresoDiag : false)}");
+
+        // Si el golpe fue de la CPU, notificar a BossZeus para activar la habilidad
+        if (!fueGolpeJugador)
+        {
+            BossZeus bossZeus = BossZeus.Instance;
+            if (bossZeus != null)
+                bossZeus.ActivarHabilidadDesdeGolpeCPU(velocidadXAntesDelGolpe);
+        }
 
         // Animación de golpe — solo si el jugador presionó el botón
         // Para la CPU siempre anima (ya lo controla CPUControl)

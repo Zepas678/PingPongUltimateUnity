@@ -23,6 +23,17 @@ public class RaquetaGolpe : MonoBehaviour
     private float tiempoBotonPress = -999f;
     private bool  golpeActivado    = false;
 
+    /// <summary>Evento invocado cuando la raqueta termina de regenerarse.
+    /// Permite a sistemas externos (p. ej. el visual Zeus) re-aplicar su apariencia.</summary>
+    public System.Action onRegenerada;
+
+    /// <summary>
+    /// Si es true, al regenerarse la raqueta NO re-activa su renderer base
+    /// (el que muestra la raqueta default). Lo usa el combate de Zeus para
+    /// evitar el destello de la raqueta base antes de que quede visible Zeus.
+    /// </summary>
+    public bool ocultarRendererBaseAlRegenerar = false;
+
     // -------------------------------------------------------
     void Awake()
     {
@@ -180,7 +191,10 @@ public class RaquetaGolpe : MonoBehaviour
 
     IEnumerator AnimarRegeneracion()
     {
-        if (meshRenderer != null) meshRenderer.enabled = true;
+        // Si la raqueta base debe permanecer oculta (combate de Zeus activo),
+        // no re-activar su renderer al regenerarse: evita el destello de la
+        // raqueta default durante la animación de reaparición.
+        if (meshRenderer != null && !ocultarRendererBaseAlRegenerar) meshRenderer.enabled = true;
         if (boxCollider != null)  boxCollider.enabled  = true;
 
         destruida       = false;
@@ -198,6 +212,10 @@ public class RaquetaGolpe : MonoBehaviour
 
         transform.localScale = escalaOriginal;
         Debug.Log($"[Raqueta] {gameObject.name} REGENERADA");
+
+        // Avisar a posibles suscriptores (p. ej. BossManager para re-ocultar la
+        // raqueta base y mantener únicamente el visual Zeus durante el combate).
+        if (onRegenerada != null) onRegenerada();
     }
 
     // -------------------------------------------------------

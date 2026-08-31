@@ -1,0 +1,4 @@
+﻿=== .jefe / raquetaZeus en SCRIPTS ===
+=== .jefe en Toda Assets (prefabs/scenes) ===
+SampleScene.unity:8890: imagenJefe: {fileID: 440704205}
+SampleScene.unity:34161: jefe: {fileID: -8679921383154817045, guid: 12725187694770946a38d68c4ea7e91a, type: 3}

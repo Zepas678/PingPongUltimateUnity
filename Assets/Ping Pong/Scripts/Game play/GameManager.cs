@@ -283,6 +283,43 @@ public class GameManager : MonoBehaviour
     }
 
     // -------------------------------------------------------
+    /// <summary>
+    /// Cancela cualquier combate de jefe activo (p. ej. Zeus) y limpia sus
+    /// efectos al volver a una partida normal (VS CPU o PvP): establece
+    /// combateActivo = false, destruye estrella/rayo, detiene coroutines y
+    /// elimina el visual especial ZeusVisual_CPU de la raqueta CPU.
+    /// </summary>
+    private void DetenerJefeActivo()
+    {
+        BossController[] bosses = FindObjectsByType<BossController>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int i = 0; i < bosses.Length; i++)
+        {
+            if (bosses[i] != null)
+                bosses[i].FinalizarCombate();
+        }
+
+        // Limpiar el visual especial de Zeus añadido a la raqueta CPU y restaurar
+        // los renderers de la raqueta base (que se ocultan durante el combate de jefe).
+        if (golpeRaquetaCPU != null)
+        {
+            // Restaurar el comportamiento normal de regeneración: fuera del combate
+            // de Zeus, la raqueta base vuelve a mostrarse correctamente al regenerarse.
+            golpeRaquetaCPU.ocultarRendererBaseAlRegenerar = false;
+
+            Transform zeusVisual = golpeRaquetaCPU.transform.Find(BossManager.NOMBRE_HIJO_ZEUS_VISUAL);
+            if (zeusVisual != null)
+                Destroy(zeusVisual.gameObject);
+
+            Renderer[] renders = golpeRaquetaCPU.GetComponentsInChildren<Renderer>(true);
+            for (int r = 0; r < renders.Length; r++)
+            {
+                if (renders[r] != null)
+                    renders[r].enabled = true;
+            }
+        }
+    }
+
+    // -------------------------------------------------------
     private void UpdateUI()
     {
         UIManager.Instance?.ActualizarMarcador(playerScore, cpuScore);
@@ -294,6 +331,12 @@ public class GameManager : MonoBehaviour
     // -------------------------------------------------------
     public void IniciarPartida()
     {
+        Debug.Log("[GameManager] 4. IniciarPartida()");
+
+        // Al iniciar una partida normal VS CPU se cancela cualquier combate de
+        // jefe activo (p. ej. Zeus) y se limpian sus efectos/estado/visual.
+        DetenerJefeActivo();
+
         DestroyPracticeModeObjects();
 
         esModoPvP   = false;
@@ -463,6 +506,10 @@ public class GameManager : MonoBehaviour
         // ══ IMPORTANTE: marcar modo PvP ANTES de destruir objetos de práctica ══
         // PracticeModeManager.OnDestroy() revisa EsModoPvP para no sobrescribir el estado.
         esModoPvP   = true;
+
+        // Al iniciar una partida PvP se cancela cualquier combate de jefe activo
+        // (p. ej. Zeus) y se limpian sus efectos/estado/visual.
+        DetenerJefeActivo();
 
         DestroyPracticeModeObjects();
         playerScore = 0;

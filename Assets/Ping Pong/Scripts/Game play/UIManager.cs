@@ -18,6 +18,9 @@ public class UIManager : MonoBehaviour
     [Header("Panel Torneo")]
     public GameObject panelTorneo;
 
+    [Header("Panel Bosses")]
+    public GameObject panelBosses;
+
     [Header("Marcador")]
     public TMP_Text scoreJugador;
     public TMP_Text scoreCPU;
@@ -65,6 +68,7 @@ public class UIManager : MonoBehaviour
         panelPausa?.SetActive(false);
         panelGameOver?.SetActive(false);
         panelTorneo?.SetActive(false);
+        panelBosses?.SetActive(false);
         panel?.SetActive(true);
     }
 
@@ -130,6 +134,13 @@ public class UIManager : MonoBehaviour
         Debug.Log("[UIManager] Modo aún no disponible");
     }
 
+    // --- Card Historia ---
+    /// <summary>Llamado por el botón Historia. Muestra el panel del selector de jefes.</summary>
+    public void OnClickModoHistoria()
+    {
+        MostrarPanel(panelBosses);
+    }
+
     // --- Modo Práctica ---
     public void OnClickModoPractica()
     {
@@ -193,8 +204,15 @@ public class UIManager : MonoBehaviour
         MostrarPanel(panelMenuPrincipal);
     }
 
-    void IniciarPartida(Dificultad d)
+    /// <summary>
+    /// Inicia una partida normal VS CPU con la dificultad indicada.
+    /// Configura la dificultad, llama a GameManager.IniciarPartida()
+    /// (que reinicia scores, activa CPU, desactiva P2 y resetea la pelota)
+    /// y oculta la UI del menú mostrando el HUD.
+    /// </summary>
+    public void IniciarPartida(Dificultad d)
     {
+        Debug.Log($"[UIManager] 3. IniciarPartida({d})");
         if (GameManager.Instance != null)
         {
             GameManager.Instance.dificultadSeleccionada = d;

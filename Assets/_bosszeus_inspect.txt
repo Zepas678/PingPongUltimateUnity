@@ -1,0 +1,73 @@
+﻿;FBXText
+{34112}: {m_Name: BossZeus}
+=== GUIDs asignados en el MonoBehaviour BossZeus (bloque cercano) ===
+{34106}:   m_PrefabAsset: {fileID: 0}
+{34107}:   serializedVersion: 6
+{34108}:   m_Component:
+{34109}:   - component: {fileID: 1914414459}
+{34110}:   - component: {fileID: 1914414460}
+{34111}:   m_Layer: 0
+{34112}:   m_Name: BossZeus
+{34113}:   m_TagString: Untagged
+{34114}:   m_Icon: {fileID: 0}
+{34115}:   m_NavMeshLayer: 0
+{34116}:   m_StaticEditorFlags: 0
+{34117}:   m_IsActive: 1
+{34118}: --- !u!4 &1914414459
+{34119}: Transform:
+{34120}:   m_ObjectHideFlags: 0
+{34121}:   m_CorrespondingSourceObject: {fileID: 0}
+{34122}:   m_PrefabInstance: {fileID: 0}
+{34123}:   m_PrefabAsset: {fileID: 0}
+{34124}:   m_GameObject: {fileID: 1914414458}
+{34125}:   serializedVersion: 2
+{34126}:   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+{34127}:   m_LocalPosition: {x: -9.392091, y: -45.517933, z: -322.23102}
+{34128}:   m_LocalScale: {x: 1, y: 1, z: 1}
+{34129}:   m_ConstrainProportionsScale: 0
+{34130}:   m_Children: []
+{34131}:   m_Father: {fileID: 2041303427}
+{34132}:   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+{34133}: --- !u!114 &1914414460
+{34134}: MonoBehaviour:
+{34135}:   m_ObjectHideFlags: 0
+{34136}:   m_CorrespondingSourceObject: {fileID: 0}
+{34137}:   m_PrefabInstance: {fileID: 0}
+{34138}:   m_PrefabAsset: {fileID: 0}
+{34139}:   m_GameObject: {fileID: 1914414458}
+{34140}:   m_Enabled: 1
+{34141}:   m_EditorHideFlags: 0
+{34142}:   m_Script: {fileID: 11500000, guid: 56f0025858e25704bbb138a96cd096c5, type: 3}
+{34143}:   m_Name: 
+{34144}:   m_EditorClassIdentifier: 
+{34145}:   bossData:
+{34146}:     id: 1
+{34147}:     nombre: Zeus
+{34148}:     titulo: "Se\xF1or del Trueno"
+{34149}:     descripcion: Teletransporta la pelota cuando va hacia el jugador
+{34150}:     imagen: {fileID: 0}
+{34151}:     colorTema: {r: 0, g: 0, b: 0, a: 0}
+{34152}:     dificultad: 4
+{34153}:     desbloqueado: 0
+{34154}:     derrotado: 0
+{34155}:     nombreMapa: 
+{34156}:   combateActivo: 1
+{34157}:   derrotado: 0
+{34158}:   gameManager: {fileID: 686527993}
+{34159}:   ball: {fileID: 1506589455}
+{34160}:   jugador: {fileID: 1152189662}
+{34161}:   jefe: {fileID: -8679921383154817045, guid: 12725187694770946a38d68c4ea7e91a, type: 3}
+{34162}:   tiempoEntreAtaques: 3
+{34163}:   distanciaFrenteJugador: -20
+{34164}:   efectoRayoPrefab: {fileID: 2475364553131810745, guid: c9fdcbe4be9511445a595599c1fe6eeb, type: 3}
+{34165}:   tiempoCargaRayo: 0.2
+{34166}:   sonidoRayo: {fileID: 8300000, guid: 24375ced84f4d444a89105876eb0a7a5, type: 3}
+{34167}:   offsetTeletransporte: {x: 0, y: 0, z: 0}
+{34168}:   esModoEpico: 0
+{34169}:   prefabEstrella: {fileID: 756028633595849143, guid: 58e97291f20aec840bfe57e8d629b038, type: 3}
+{34170}:   prefabAparicion: {fileID: 756028633595849143, guid: 58e97291f20aec840bfe57e8d629b038, type: 3}
+{34171}:   centroMesa: {fileID: 712635150}
+{34172}:   ladoJugador: {fileID: 746873779}
+{34173}:   ladoCPU: {fileID: 1920936078}
+{34174}: --- !u!1 &1914531081
+{34175}: GameObject:
