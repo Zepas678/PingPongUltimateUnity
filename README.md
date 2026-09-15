@@ -6,7 +6,7 @@
 
 [![Unity](https://img.shields.io/badge/Unity-3D%20Game-000000?style=for-the-badge\&logo=unity)](https://unity.com/)
 [![C%23](https://img.shields.io/badge/C%23-Game%20Logic-512BD4?style=for-the-badge\&logo=csharp\&logoColor=white)](https://learn.microsoft.com/en-us/dotnet/csharp/)
-[![Version](https://img.shields.io/badge/Version-v0.6.0-blue?style=for-the-badge)](../../releases)
+[![Version](https://img.shields.io/badge/Version-v0.7.0-blue?style=for-the-badge)](../../releases)
 [![Status](https://img.shields.io/badge/Status-In%20Development-orange?style=for-the-badge)](#-project-status)
 
 <br>
