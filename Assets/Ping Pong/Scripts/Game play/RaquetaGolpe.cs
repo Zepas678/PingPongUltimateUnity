@@ -81,7 +81,15 @@ public class RaquetaGolpe : MonoBehaviour
     }
 
     // -------------------------------------------------------
-    public bool PuedeResistir(float velocidadPelota)
+    /// <summary>
+    /// Consulta si la raqueta puede resistir un impacto a la velocidad indicada.
+    /// Lógica por defecto de la raqueta regular: la CPU solo resiste si activó un
+    /// golpe (golpeActivado); el jugador necesita presionar J a tiempo.
+    /// Las subclases o controladores (p. ej. la raqueta de Colossus) pueden
+    /// SOBRESCRIBIR este método para consumir cargas de resistencia/inmunidad
+    /// antes de decidir si la raqueta se rompe (modo épico/Inhumano).
+    /// </summary>
+    public virtual bool PuedeResistir(float velocidadPelota)
     {
         if (destruida) return false;
 
@@ -169,6 +177,18 @@ public class RaquetaGolpe : MonoBehaviour
         if (boxCollider != null)  boxCollider.enabled  = false;
 
         Debug.Log($"[Raqueta] {gameObject.name} DESTRUIDA");
+    }
+
+    /// <summary>
+    /// Fuerza la destrucción visual de la raqueta: marca destruida y lanza la
+    /// animación de colapso (malla desactivada, collider desactivado). La usan
+    /// sistemas externos (p. ej. BossColossus cuando su inmunidad se agota) para
+    /// que la raqueta del CPU se rompa de verdad y luego se regenere con Regenerar().
+    /// </summary>
+    public void ForzarDestruccion()
+    {
+        if (destruida) return;
+        StartCoroutine(Destruir());
     }
 
     // -------------------------------------------------------

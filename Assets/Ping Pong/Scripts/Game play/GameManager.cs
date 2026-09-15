@@ -163,11 +163,21 @@ public class GameManager : MonoBehaviour
         {
             playerScore++;
             Debug.Log($"[GameManager] PUNTO JUGADOR | {playerScore} - {cpuScore}");
+
+            // Notificar al jefe activo (p. ej. Colossus) de que el JUGADOR le
+            // anotó un punto: evento real (no polling frame a frame) para hacer
+            // crecer al jefe, rearmar su inmunidad y recalcular la escala.
+            // No-op si no hay combate de jefe en curso (JefeActivo == null).
+            BossManager bossManager = FindObjectOfType<BossManager>();
+            if (bossManager != null && bossManager.JefeActivo != null)
+                bossManager.JefeActivo.OnPuntoDelJugador();
         }
         else
         {
             cpuScore++;
             Debug.Log($"[GameManager] PUNTO CPU | {playerScore} - {cpuScore}");
+            // Nota: cuando anota la CPU (Colossus), el jefe NO crece ni se rearma:
+            // los puntos del rival no cuentan a su favor.
         }
 
         UpdateUI();
@@ -291,32 +301,39 @@ public class GameManager : MonoBehaviour
     /// </summary>
     private void DetenerJefeActivo()
     {
+        // El jefe preparado para la batalla actual (asignado por BossManager
+        // ANTES de crear la partida) se respeta: su combate NO se cancela aquí
+        // porque BossManager lo reiniciará a continuación con IniciarCombate().
+        // Solo se limpian los DEMÁS jefes.
+        BossController jefePreparado = null;
+        BossManager bossManager = FindObjectOfType<BossManager>();
+        if (bossManager != null)
+            jefePreparado = bossManager.JefeActivo;
+
         BossController[] bosses = FindObjectsByType<BossController>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         for (int i = 0; i < bosses.Length; i++)
         {
-            if (bosses[i] != null)
-                bosses[i].FinalizarCombate();
+            if (bosses[i] == null) continue;
+
+            // No finalizar el combate del jefe que acaba de ser seleccionado
+            // para la batalla actual.
+            if (jefePreparado != null && bosses[i] == jefePreparado)
+                continue;
+
+            bosses[i].FinalizarCombate();
         }
 
-        // Limpiar el visual especial de Zeus añadido a la raqueta CPU y restaurar
-        // los renderers de la raqueta base (que se ocultan durante el combate de jefe).
-        if (golpeRaquetaCPU != null)
-        {
-            // Restaurar el comportamiento normal de regeneración: fuera del combate
-            // de Zeus, la raqueta base vuelve a mostrarse correctamente al regenerarse.
-            golpeRaquetaCPU.ocultarRendererBaseAlRegenerar = false;
+        // Limpiar la skin del jefe en la raqueta CPU (método genérico de BossManager):
+        // destruye JefeVisual_CPU y ZeusVisual_CPU, des-suscribe regeneración y
+        // reactiva los renderers de la raqueta base. Así la raqueta queda limpia para
+        // partidas normales (VS CPU, Torneo, 2 Jugadores).
+        if (bossManager != null)
+            bossManager.LimpiarVisualJefeCPU();
 
-            Transform zeusVisual = golpeRaquetaCPU.transform.Find(BossManager.NOMBRE_HIJO_ZEUS_VISUAL);
-            if (zeusVisual != null)
-                Destroy(zeusVisual.gameObject);
-
-            Renderer[] renders = golpeRaquetaCPU.GetComponentsInChildren<Renderer>(true);
-            for (int r = 0; r < renders.Length; r++)
-            {
-                if (renders[r] != null)
-                    renders[r].enabled = true;
-            }
-        }
+        // Liberar la referencia al jefe preparado: la limpieza global ya se aplicó
+        // y a partir de aquí BossManager re-activa explícitamente al jefe correcto.
+        if (bossManager != null)
+            bossManager.JefeActivo = null;
     }
 
     // -------------------------------------------------------

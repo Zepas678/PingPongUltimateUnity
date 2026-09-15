@@ -184,6 +184,63 @@ public class MapManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Selecciona un mapa a partir de su configuración asociada (ConfigMapa).
+    /// Reutiliza SeleccionarMapaPorNombre usando el nombre de la configuración.
+    /// </summary>
+    /// <param name="config">Configuración del mapa (nombre, prefab, posición, etc.).</param>
+    /// <returns>true si el mapa fue encontrado y seleccionado; false si no.</returns>
+    public bool SeleccionarMapa(ConfigMapa config)
+    {
+        if (config == null || string.IsNullOrEmpty(config.nombre))
+        {
+            Debug.LogWarning("[MapManager] SeleccionarMapa: ConfigMapa nulo o sin nombre.");
+            return false;
+        }
+
+        return SeleccionarMapaPorNombre(config.nombre);
+    }
+
+    /// <summary>
+    /// Activa el escenario (mapa) del jefe de forma 100% centralizada, guiado por
+    /// los datos del jefe (BossData.mapaAsociado o BossData.nombreMapa).
+    /// Es responsable de cargar/activar el mapa para cualquier jefe sin hardcodear
+    /// nombres dentro de los scripts de los jefes. Si el mapa ya está activo,
+    /// no se reinstancia (comportamiento idempotente de InstanciarMapa).
+    /// </summary>
+    /// <param name="jefe">BossData del jefe seleccionado para la batalla.</param>
+    /// <returns>true si se activó un mapa; false si no se pudo cargar ninguno.</returns>
+    public bool SeleccionarMapaBoss(BossData jefe)
+    {
+        if (jefe == null)
+        {
+            Debug.LogWarning("[MapManager] SeleccionarMapaBoss: BossData nulo.");
+            return false;
+        }
+
+        // 1) Mapa directamente asociado en el ScriptableObject del jefe.
+        if (jefe.mapaAsociado != null)
+        {
+            Debug.Log($"[BossManager] Cargando mapa para {jefe.nombre}. Mapa asignado: {jefe.mapaAsociado.nombre}");
+            return SeleccionarMapa(jefe.mapaAsociado);
+        }
+
+        // 2) Mapa por nombre configurado en el ScriptableObject del jefe.
+        if (!string.IsNullOrEmpty(jefe.nombreMapa))
+        {
+            Debug.Log($"[BossManager] Cargando mapa para {jefe.nombre}. Mapa asignado: {jefe.nombreMapa}");
+            if (SeleccionarMapaPorNombre(jefe.nombreMapa))
+                return true;
+
+            Debug.LogWarning($"[MapManager] No existe el mapa '{jefe.nombreMapa}' del jefe '{jefe.nombre}'. Usando mapa por defecto.");
+            return SeleccionarMapaPorNombre("Mapa Nube");
+        }
+
+        // 3) El jefe no tiene ningún mapa asignado: usar un mapa por defecto.
+        Debug.Log($"[BossManager] Cargando mapa para {jefe.nombre}. Mapa asignado: Ninguno (usando fallback)");
+        return SeleccionarMapaPorNombre("Mapa Nube");
+    }
+
     // ─── Selección aleatoria de mapa (para torneo) ───
     private static int ultimoMapaTorneo = -1;
 
@@ -252,6 +309,10 @@ public class MapManager : MonoBehaviour
         mapaActual.transform.localScale = config.escala;
         mapaActual.transform.eulerAngles = config.rotacion;
         mapaActualConfig = config;
+
+        // Sincronizar los colliders de todos los elementos recién posicionados en el
+        // mapa (mesa, paredes, etc.) para evitar desincronizaciones en las colisiones.
+        Physics.SyncTransforms();
 
         // Cambiar skybox si el mapa tiene uno asignado
         if (config.skybox != null)

@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
+using System.Linq;
 
 /// <summary>
 /// Administra la selección de jefes desde la interfaz.
@@ -41,6 +42,17 @@ public class BossManager : MonoBehaviour
 
     /// <summary>Nombre del GameObject hijo (visual Zeus) añadido a la raqueta CPU.</summary>
     public const string NOMBRE_HIJO_ZEUS_VISUAL = "ZeusVisual_CPU";
+
+    /// <summary>Nombre GENÉRICO del hijo visual del jefe añadido a la raqueta CPU.</summary>
+    public const string NOMBRE_HIJO_JEFE_VISUAL = "JefeVisual_CPU";
+
+    /// <summary>
+    /// BossController preparado para la batalla actual (asignado por StartBossBattle
+    /// ANTES de crear la partida). GameManager.DetenerJefeActivo() lo respeta y NO le
+    /// aplica FinalizarCombate() durante la limpieza global, para que el combate del
+    /// jefe recién seleccionado no se cancele antes de IniciarCombate().
+    /// </summary>
+    public BossController JefeActivo { get; set; }
 
     // ──────────────────────────────────────────────
     void Start()
@@ -128,22 +140,17 @@ public class BossManager : MonoBehaviour
         BossData jefe = bosses[currentBossIndex];
         if (jefe == null) return;
 
+        // Diagnóstico: mostrar qué jefe se está evaluando y qué rama tomará el código.
+        Debug.Log("[BossManager] Evaluando jefe: " + jefe.nombre + " | ¿EsColossus?: " + EsJefeColossus(jefe));
+
         if (!jefe.desbloqueado)
         {
             Debug.LogWarning("[BossManager] El jefe '" + jefe.nombre + "' está bloqueado.");
             return;
         }
 
-        // Verificar que el jefe tenga un mapa configurado
-        if (string.IsNullOrEmpty(jefe.nombreMapa))
-        {
-            Debug.LogWarning("[BossManager] El jefe '" + jefe.nombre + "' no tiene un mapa configurado.");
-            return;
-        }
-
-        // Buscar el MapManager de la escena
-        MapManager mapManager = FindObjectOfType<MapManager>();
-        if (mapManager == null)
+        // Buscar el MapManager de la escena (se usa la instancia singleton).
+        if (MapManager.Instance == null)
         {
             Debug.LogError("[BossManager] No se encontró un MapManager en la escena.");
             return;
@@ -156,33 +163,92 @@ public class BossManager : MonoBehaviour
             return;
         }
 
-        Debug.Log("Iniciando combate contra " + jefe.nombre + " (mapa: " + jefe.nombreMapa + ")");
+        Debug.Log("Iniciando combate contra " + jefe.nombre);
 
-        // 1. Seleccionar el mapa del jefe usando el MapManager existente
-        mapManager.SeleccionarMapaPorNombre(jefe.nombreMapa);
-        Debug.Log("[BossManager] 2. MapManager.SeleccionarMapaPorNombre() llamado");
+        // 1. Seleccionar y activar el mapa del jefe ANTES de iniciar la partida.
+        //    La responsabilidad de cargar/activar el mapa es 100% de MapManager,
+        //    guiado por los datos del jefe (BossData.mapaAsociado / nombreMapa),
+        //    lo que hace la carga de escenario automática y modular para cualquier jefe.
+        Debug.Log($"[BossManager] Cargando mapa para {jefe.nombre}. Mapa asignado: {(jefe.mapaAsociado != null ? jefe.mapaAsociado.nombre : (string.IsNullOrEmpty(jefe.nombreMapa) ? "Ninguno (usando fallback)" : jefe.nombreMapa))}");
+        MapManager.Instance.SeleccionarMapaBoss(jefe);
+        Debug.Log("[BossManager] 2. Selección de mapa completada.");
 
-        // 2. Iniciar la partida con el mismo flujo que una partida VS CPU,
-        //    usando la dificultad del jefe. UIManager.IniciarPartida() se encarga
-        //    de ocultar la UI, mostrar el HUD y llamar a GameManager.IniciarPartida().
-        // Solo el jefe Zeus usa la dificultad máxima (Inhumano); los demás jefes
-        // conservan su dificultad propia.
-        Dificultad dificultadCombate = EsJefeZeus(jefe) ? Dificultad.Inhumano : DificultadDelJefe(jefe.dificultad);
+        // Registrar qué jefe se va a activar en esta batalla ANTES de iniciar la
+        // partida, para que GameManager.DetenerJefeActivo() (invocado al crear la
+        // partida) NO le aplique FinalizarCombate() a este jefe.
+        JefeActivo = ResolverControllerDelJefeActivo(jefe);
+
+        // 2. Iniciar la partida PRIMERO (antes de habilitar el nuevo jefe).
+        //    UIManager.IniciarPartida() llama a GameManager.IniciarPartida(), que
+        //    ejecuta DetenerJefeActivo(): ahí se limpia de forma global cualquier
+        //    combate de jefe ANTERIOR (Zeus, Colossus, etc.) y sus efectos.
+        //    Gracias a JefeActivo, el jefe recién seleccionado se respeta en esa
+        //    limpieza y no es cancelado antes de IniciarCombate().
+        // Zeus y Colossus combaten SIEMPRE en dificultad Inhumana (perfil de IA
+        // máximo: nunca falla, siempre golpea, incluso en modo épico/ultra).
+        // El resto de jefes usa la dificultad definida en su BossData.
+        Dificultad dificultadCombate = (EsJefeZeus(jefe) || EsJefeColossus(jefe))
+            ? Dificultad.Inhumano
+            : DificultadDelJefe(jefe.dificultad);
         UIManager.Instance.IniciarPartida(dificultadCombate);
         Debug.Log("[BossManager] 3. UIManager.IniciarPartida() llamado");
 
-        // 3. Una vez que la partida fue creada por GameManager, activar el combate del jefe.
-        BossZeus bossZeus = FindObjectOfType<BossZeus>();
-        if (bossZeus != null)
-        {
-            bossZeus.IniciarCombate();
+        // 3. Desactivar los scripts de los jefes que NO son el seleccionado.
+        //    Evita que Zeus (u otro jefe) ejecute sus habilidades por error
+        //    durante el combate de otro jefe. El jefe seleccionado se conserva.
+        DesactivarOtrosJefes(jefe);
 
-            // Si el jefe seleccionado es Zeus, aplicar su modelo visual a la raqueta CPU.
-            AplicarVisualZeusCPU(jefe, bossZeus);
+        // 4. Una vez que la partida fue creada por GameManager, activar el combate
+        //    del jefe seleccionado usando su clase específica (o BossController genérico).
+        if (EsJefeZeus(jefe))
+        {
+            BossZeus bossZeus = FindObjectOfType<BossZeus>();
+            if (bossZeus != null)
+            {
+                bossZeus.enabled = true;
+                bossZeus.IniciarCombate();
+
+                // Aplicar el modelo visual del jefe a la raqueta CPU (método genérico).
+                AplicarVisualJefeCPU(jefe, bossZeus);
+            }
+            else
+            {
+                Debug.LogWarning("[BossManager] No se encontró un BossZeus en la escena para iniciar el combate de Zeus.");
+            }
+        }
+        else if (EsJefeColossus(jefe))
+        {
+            BossColossus colossusController = BuscarBossColossusEnEscena();
+
+            if (colossusController != null)
+            {
+                colossusController.enabled = true;
+                colossusController.IniciarCombate();
+
+                // Aplicar el modelo visual del jefe a la raqueta CPU (método genérico).
+                AplicarVisualJefeCPU(jefe, colossusController);
+            }
+            else
+            {
+                Debug.LogError("[BossManager] ERROR: No se encontró un BossColossus en la escena. Verifica que el GameObject del jefe Colossus exista y tenga asignado el script BossColossus.cs.");
+            }
         }
         else
         {
-            Debug.LogWarning("[BossManager] No se encontró un BossZeus en la escena para iniciar el combate.");
+            // Compatibilidad genérica: cualquier otro jefe derivado de BossController.
+            BossController controller = BuscarControllerDelJefe(jefe);
+            if (controller != null)
+            {
+                controller.enabled = true;
+                controller.IniciarCombate();
+
+                // Aplicar el modelo visual del jefe a la raqueta CPU (método genérico).
+                AplicarVisualJefeCPU(jefe, controller);
+            }
+            else
+            {
+                Debug.LogWarning($"[BossManager] No se encontró en la escena un BossController para el jefe '{jefe.nombre}'.");
+            }
         }
     }
 
@@ -287,10 +353,148 @@ public class BossManager : MonoBehaviour
         }
         else
         {
-            // ── 4b. Sin renderer válido: NO ocultar la raqueta original y
-            // destruir la instancia inválida ──
             Destroy(instanciaZeus);
             Debug.LogWarning("[ZEUS VISUAL] La instancia Zeus no tiene Renderers válidos: se destruyó y se conserva la raqueta original.");
+        }
+    }
+
+    // ──────────────────────────────────────────────
+    // Asignación GENÉRICA de Skins para Jefes
+    // ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Limpieza COMPLETA de la skin visual del jefe en la raqueta CPU.
+    /// Destruye el hijo JefeVisual_CPU (y ZeusVisual_CPU si existiera), des-suscribe
+    /// el evento de regeneración, reactiva los Renderers de la raqueta base y restaura
+    /// el estado normal. Invocar al iniciar partidas normales o al volver al menú.
+    /// </summary>
+    public void LimpiarVisualJefeCPU()
+    {
+        if (GameManager.Instance == null || GameManager.Instance.golpeRaquetaCPU == null) return;
+        Transform raizCPU = GameManager.Instance.golpeRaquetaCPU.transform;
+        RaquetaGolpe raquetaCPU = GameManager.Instance.golpeRaquetaCPU;
+
+        // 1. Destruir el hijo visual genérico
+        Transform hijoGen = raizCPU.Find(NOMBRE_HIJO_JEFE_VISUAL);
+        if (hijoGen != null) Destroy(hijoGen.gameObject);
+
+        // 2. Destruir el hijo visual específico de Zeus
+        Transform hijoZeus = raizCPU.Find(NOMBRE_HIJO_ZEUS_VISUAL);
+        if (hijoZeus != null) Destroy(hijoZeus.gameObject);
+
+        // 3. Des-suscribir el evento de regeneración
+        raquetaCPU.onRegenerada -= ReaplicarOcultadoJefe;
+
+        // 4. Restaurar el flag de ocultado automático
+        raquetaCPU.ocultarRendererBaseAlRegenerar = false;
+
+        // 5. Reactivar TODOS los Renderer de la raqueta base de la CPU
+        Renderer[] renderersBase = raquetaCPU.GetComponentsInChildren<Renderer>(true);
+        foreach (Renderer br in renderersBase)
+        {
+            if (br != null) br.enabled = true;
+        }
+
+        Debug.Log("[BossManager] Limpieza de skin de jefe completada: raqueta CPU restaurada a estado normal.");
+    }
+
+    /// <summary>
+    /// Añade el modelo visual del jefe (bossController.jefe) como hijo de la raqueta CPU,
+    /// aplicando su Transform exacto (posición, rotación y escala) según el jefe.
+    /// </summary>
+    private void AplicarVisualJefeCPU(BossData jefe, BossController bossController)
+    {
+        if (jefe == null || bossController == null || bossController.jefe == null) return;
+        if (GameManager.Instance == null || GameManager.Instance.golpeRaquetaCPU == null) return;
+
+        Transform raizCPU = GameManager.Instance.golpeRaquetaCPU.transform;
+
+        // Limpiar cualquier skin previa instalada
+        LimpiarVisualJefeCPU();
+
+        // ── 1. Instanciar la Skin del Jefe como hijo de la raqueta CPU ──
+        GameObject instanciaSkin = Instantiate(bossController.jefe.gameObject, raizCPU);
+        instanciaSkin.name = NOMBRE_HIJO_JEFE_VISUAL;
+
+        // ── 2. Aplicar Transform específico según el Jefe ──
+        if (EsJefeZeus(jefe))
+        {
+            instanciaSkin.transform.localPosition = new Vector3(0f, 0.032f, -0.0134f);
+            instanciaSkin.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            instanciaSkin.transform.localScale = new Vector3(0.04985384f, 0.01177737f, 0.09542381f);
+        }
+        else if (EsJefeColossus(jefe))
+        {
+            instanciaSkin.transform.localPosition = Vector3.zero;
+            instanciaSkin.transform.localRotation = Quaternion.identity;
+            instanciaSkin.transform.localScale = new Vector3(1.271941f, 0.3898578f, 1.216918f);
+        }
+        else
+        {
+            // Valores fallback por defecto
+            instanciaSkin.transform.localPosition = new Vector3(0f, 0.005f, -0.0207f);
+            instanciaSkin.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            instanciaSkin.transform.localScale = Vector3.one;
+        }
+
+        // ── 3. Validar renderers en el prefab instanciado ──
+        Renderer[] renderersSkin = instanciaSkin.GetComponentsInChildren<Renderer>(true);
+
+        bool skinTieneRenderers = false;
+        foreach (Renderer r in renderersSkin)
+        {
+            if (r != null)
+            {
+                r.enabled = true;
+                skinTieneRenderers = true;
+            }
+        }
+
+        if (skinTieneRenderers)
+        {
+            // Ocultar mallas base de la raqueta original de la CPU
+            Renderer[] renderersOriginales = GameManager.Instance.golpeRaquetaCPU.GetComponentsInChildren<Renderer>(true);
+            foreach (Renderer br in renderersOriginales)
+            {
+                if (br.transform.IsChildOf(instanciaSkin.transform)) continue;
+                br.enabled = false;
+            }
+
+            // Suscribirse al evento de regeneración para mantener la skin en repeticiones/rondas
+            SuscribirRegeneracionCPU();
+            GameManager.Instance.golpeRaquetaCPU.ocultarRendererBaseAlRegenerar = true;
+
+            Debug.Log($"[BossManager] Skin visual de '{jefe.nombre}' aplicada correctamente a la raqueta CPU.");
+        }
+        else
+        {
+            Destroy(instanciaSkin);
+            Debug.LogWarning($"[BossManager] El prefab visual para '{jefe.nombre}' no contiene Renderers válidos.");
+        }
+    }
+
+    /// <summary>
+    /// Handler GENÉRICO del evento onRegenerada de la raqueta CPU: tras una regeneración
+    /// re-oculta los renderers de la raqueta base y mantiene únicamente el visual del
+    /// jefe activo (JefeVisual_CPU o ZeusVisual_CPU), siempre que el combate siga activo.
+    /// </summary>
+    private void ReaplicarOcultadoJefe()
+    {
+        if (GameManager.Instance == null || GameManager.Instance.golpeRaquetaCPU == null) return;
+        Transform raizCPU = GameManager.Instance.golpeRaquetaCPU.transform;
+
+        // Buscar el visual del jefe activo (nombre genérico o específico de Zeus)
+        Transform jefeVisual = raizCPU.Find(NOMBRE_HIJO_JEFE_VISUAL);
+        if (jefeVisual == null) jefeVisual = raizCPU.Find(NOMBRE_HIJO_ZEUS_VISUAL);
+        if (jefeVisual == null) return;
+
+        Renderer[] renderersBase = raizCPU.GetComponentsInChildren<Renderer>(true);
+        for (int i = 0; i < renderersBase.Length; i++)
+        {
+            Renderer br = renderersBase[i];
+            if (br == null) continue;
+            if (br.transform.IsChildOf(jefeVisual)) continue;
+            br.enabled = false;
         }
     }
 
@@ -298,6 +502,192 @@ public class BossManager : MonoBehaviour
     private bool EsJefeZeus(BossData jefe) =>
         jefe != null && !string.IsNullOrWhiteSpace(jefe.nombre) &&
         jefe.nombre.ToLowerInvariant() == "zeus";
+
+    /// <summary>Devuelve true si el jefe seleccionado es Colossus (por nombre),
+    /// ignorando mayúsculas/minúsculas y espacios adicionales.</summary>
+    private bool EsJefeColossus(BossData jefe) =>
+        jefe != null &&
+        !string.IsNullOrWhiteSpace(jefe.nombre) &&
+        jefe.nombre.Trim().ToLowerInvariant().Contains("colossus");
+
+    // ──────────────────────────────────────────────
+    /// <summary>
+    /// Desactiva los scripts de TODOS los jefes que NO correspondan al jefe
+    /// seleccionado, finalizando su combate, cancelando corrutinas y deshabilitando
+    /// el componente para que no ejecuten sus habilidades por error.
+    /// Garantiza que solo el jefe activo tenga combateActivo = true.
+    /// </summary>
+    private void DesactivarOtrosJefes(BossData jefeSeleccionado)
+    {
+        if (jefeSeleccionado == null) return;
+
+        bool esZeus      = EsJefeZeus(jefeSeleccionado);
+        bool esColossus  = EsJefeColossus(jefeSeleccionado);
+
+        // ── BossZeus ──
+        BossZeus[] zeusEnEscena = FindObjectsOfType<BossZeus>(true);
+        foreach (BossZeus z in zeusEnEscena)
+        {
+            if (z == null) continue;
+
+            // Si el jefe seleccionado ES Zeus, mantenerlo habilitado.
+            if (esZeus)
+            {
+                z.enabled = true;
+                continue;
+            }
+
+            // Cualquier otro caso: finalizar su combate y desactivar su script.
+            z.FinalizarCombate();     // combateActivo = false
+            z.StopAllCoroutines();    // cancelar rayo/teletransporte pendiente
+            z.DesactivarHabilidad();  // limpiar habilidad activa
+            z.enabled = false;
+
+            Debug.Log($"[BossManager] Script de BossZeus ('{z.gameObject.name}') desactivado. Jefe activo: '{jefeSeleccionado.nombre}'.");
+        }
+
+        // ── BossColossus ──
+        BossColossus[] colossusEnEscena = FindObjectsOfType<BossColossus>(true);
+        foreach (BossColossus c in colossusEnEscena)
+        {
+            if (c == null) continue;
+
+            // Si el jefe seleccionado ES Colossus, mantenerlo habilitado.
+            if (esColossus)
+            {
+                c.enabled = true;
+                continue;
+            }
+
+            // Cualquier otro caso: finalizar su combate y desactivar su script.
+            c.FinalizarCombate();     // combateActivo = false
+            c.StopAllCoroutines();    // cancelar Modo Fortaleza pendiente
+            c.DesactivarHabilidad();  // limpiar habilidad activa
+            c.enabled = false;
+
+            Debug.Log($"[BossManager] Script de BossColossus ('{c.gameObject.name}') desactivado. Jefe activo: '{jefeSeleccionado.nombre}'.");
+        }
+
+        // ── Compatibilidad genérica: cualquier otro BossController ──
+        // Desactivar los demás jefes que deriven de BossController pero no
+        // correspondan al jefe seleccionado.
+        BossController[] controllersEnEscena = FindObjectsOfType<BossController>(true);
+        foreach (BossController bc in controllersEnEscena)
+        {
+            if (bc == null) continue;
+
+            // Los ya gestionados por su clase específica se omiten.
+            if (bc is BossZeus || bc is BossColossus) continue;
+
+            // Determinar si este BossController corresponde al jefe seleccionado.
+            bool coincide = false;
+            if (bc.bossData != null && !string.IsNullOrWhiteSpace(jefeSeleccionado.nombre))
+                coincide = string.Equals(
+                    bc.bossData.nombre, jefeSeleccionado.nombre,
+                    System.StringComparison.OrdinalIgnoreCase
+                );
+            if (!coincide && !string.IsNullOrWhiteSpace(bc.gameObject.name))
+                coincide = string.Equals(
+                    bc.gameObject.name, jefeSeleccionado.nombre,
+                    System.StringComparison.OrdinalIgnoreCase
+                );
+
+            if (coincide)
+            {
+                bc.enabled = true;
+                continue;
+            }
+
+            bc.FinalizarCombate();
+            bc.StopAllCoroutines();
+            bc.DesactivarHabilidad();
+            bc.enabled = false;
+
+            Debug.Log($"[BossManager] Script de jefe '{bc.gameObject.name}' desactivado. Jefe activo: '{jefeSeleccionado.nombre}'.");
+        }
+    }
+
+    // ──────────────────────────────────────────────
+    /// <summary>
+    /// Busca en la escena un BossController genérico que corresponda al jefe
+    /// seleccionado (por nombre de BossData o por nombre del GameObject),
+    /// excluyendo Zeus y Colossus que se gestionan por su clase específica.
+    /// </summary>
+    private BossController BuscarControllerDelJefe(BossData jefe)
+    {
+        if (jefe == null) return null;
+
+        BossController[] todos = FindObjectsOfType<BossController>(true);
+        foreach (BossController bc in todos)
+        {
+            if (bc == null) continue;
+            if (bc is BossZeus || bc is BossColossus) continue;
+
+            if (bc.bossData != null && !string.IsNullOrWhiteSpace(bc.bossData.nombre) &&
+                !string.IsNullOrWhiteSpace(jefe.nombre) &&
+                string.Equals(bc.bossData.nombre, jefe.nombre, System.StringComparison.OrdinalIgnoreCase))
+                return bc;
+
+            if (!string.IsNullOrWhiteSpace(bc.gameObject.name) &&
+                !string.IsNullOrWhiteSpace(jefe.nombre) &&
+                string.Equals(bc.gameObject.name, jefe.nombre, System.StringComparison.OrdinalIgnoreCase))
+                return bc;
+        }
+
+        return null;
+    }
+// ──────────────────────────────────────────────
+    /// <summary>
+    /// Resuelve el BossController concreto del jefe seleccionado para la batalla
+    /// actual (BossZeus, BossColossus o un BossController genérico).
+    /// Devuelve null si el jefe no se encuentra en la escena.
+    /// </summary>
+    private BossController ResolverControllerDelJefeActivo(BossData jefe)
+    {
+        if (jefe == null) return null;
+
+        if (EsJefeZeus(jefe))
+        {
+            BossZeus zeus = FindObjectOfType<BossZeus>();
+            if (zeus != null) return zeus;
+        }
+        else if (EsJefeColossus(jefe))
+        {
+            // Incluye objetos/instancias deshabilitados en la escena.
+            BossColossus colossus = BuscarBossColossusEnEscena();
+            if (colossus != null) return colossus;
+        }
+        else
+        {
+            BossController generico = BuscarControllerDelJefe(jefe);
+            if (generico != null) return generico;
+        }
+
+        return null;
+    }
+
+    // ──────────────────────────────────────────────
+    /// <summary>
+    /// Busca el controlador de Colossus INCLUYENDO objetos e instancias
+    /// deshabilitadas en la escena. El script del jefe puede estar apagado
+    /// (p. ej. tras DesactivarOtrosJefes()) y aun así debe encontrarse.
+    /// </summary>
+    private BossColossus BuscarBossColossusEnEscena()
+    {
+        // Resources.FindObjectsOfTypeAll incluye assets/prefabs y objetos
+        // inactivos de la escena; se filtra solo a los que pertenecen a una
+        // escena cargada (acotado con b.gameObject.scene.isLoaded).
+        BossColossus colossusController = Resources.FindObjectsOfTypeAll<BossColossus>()
+            .FirstOrDefault(b => b.gameObject.scene.isLoaded);
+
+        // Fallback: buscar en los hijos de este BossManager (incluye inactivos).
+        if (colossusController == null)
+        {
+            colossusController = GetComponentInChildren<BossColossus>(true);
+        }
+
+        return colossusController;
+    }
 
     // ──────────────────────────────────────────────
     /// <summary>
@@ -310,8 +700,8 @@ public class BossManager : MonoBehaviour
         RaquetaGolpe raquetaCPU = GameManager.Instance.golpeRaquetaCPU;
 
         // Siempre des-suscribir primero para garantizar una única suscripción.
-        raquetaCPU.onRegenerada -= ReaplicarOcultadoZeus;
-        raquetaCPU.onRegenerada += ReaplicarOcultadoZeus;
+        raquetaCPU.onRegenerada -= ReaplicarOcultadoJefe;
+        raquetaCPU.onRegenerada += ReaplicarOcultadoJefe;
     }
 
     /// <summary>
@@ -367,13 +757,15 @@ public class BossManager : MonoBehaviour
     {
         if (indicadores == null || jefe == null) return;
 
-        for (int i = 0; i < indicadores.Length; i++)
-        {
-            if (indicadores[i] == null) continue;
+        // El color de tema se aplica SOLO al indicador del jefe seleccionado.
+        int indice = currentBossIndex;
+        if (indice < 0 || indice >= indicadores.Length) return;
 
-            // Solo el indicador del jefe seleccionado usa el color de tema
-            if (i == currentBossIndex)
-                indicadores[i].color = jefe.colorTema;
+        if (indicadores[indice] != null)
+        {
+            Color tema = jefe.colorTema;
+            tema.a = 1f; // El indicador activo SIEMPRE con opacidad plena.
+            indicadores[indice].color = tema;
         }
     }
 
@@ -386,24 +778,27 @@ public class BossManager : MonoBehaviour
             if (indicadores[i] == null) continue;
 
             // Mostrar solo los indicadores que tienen jefe asignado
-            indicadores[i].gameObject.SetActive(i < bosses.Count);
+            bool tieneJefe = i < bosses.Count;
+            indicadores[i].gameObject.SetActive(tieneJefe);
+            if (!tieneJefe) continue;
 
-            // Los indicadores no seleccionados vuelven a un estado neutro
-            if (i != currentBossIndex)
+            if (i == currentBossIndex)
             {
-                Color neutro = indicadores[i].color;
-                neutro.a = 0.3f; // Apagado / no seleccionado
-                indicadores[i].color = neutro;
+                // Indicador ACTIVO: opacidad 1.0
+                Color activo = indicadores[i].color;
+                activo.a = 1f;
+                indicadores[i].color = activo;
             }
             else
             {
-                Color activo = indicadores[i].color;
-                activo.a = 1f; // Encendido / seleccionado
-                indicadores[i].color = activo;
+                // Indicadores INACTIVOS: opacidad reducida (0.3)
+                Color neutro = indicadores[i].color;
+                neutro.a = 0.3f;
+                indicadores[i].color = neutro;
             }
         }
 
-        // Reaplicar el color de tema al indicador seleccionado
+        // Aplicar el color de tema únicamente al indicador seleccionado
         if (currentBossIndex >= 0 && currentBossIndex < bosses.Count && bosses[currentBossIndex] != null)
             ActualizarColorTema(bosses[currentBossIndex]);
     }

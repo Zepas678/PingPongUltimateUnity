@@ -1,0 +1,12 @@
+﻿
+    IEnumerator AnimarRegeneracion()
+    {
+        // Si la raqueta base debe permanecer oculta (combate de Zeus activo),
+        // no re-activar su renderer al regenerarse: evita el destello de la
+        // raqueta default durante la animaciÃ³n de reapariciÃ³n.
+        if (meshRenderer != null && !ocultarRendererBaseAlRegenerar) meshRenderer.enabled = true;
+        if (boxCollider != null)  boxCollider.enabled  = true;
+
+        destruida       = false;
+        botonPresionado = false;
+        golpeActivado   = false;

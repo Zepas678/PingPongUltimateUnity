@@ -1,0 +1,12 @@
+﻿        // Limpiar el visual especial de Zeus aÃ±adido a la raqueta CPU y restaurar
+        // los renderers de la raqueta base (que se ocultan durante el combate de jefe).
+        if (golpeRaquetaCPU != null)
+        {
+            // Restaurar el comportamiento normal de regeneraciÃ³n: fuera del combate
+            // de Zeus, la raqueta base vuelve a mostrarse correctamente al regenerarse.
+            golpeRaquetaCPU.ocultarRendererBaseAlRegenerar = false;
+
+            Transform zeusVisual = golpeRaquetaCPU.transform.Find(BossManager.NOMBRE_HIJO_ZEUS_VISUAL);
+            if (zeusVisual != null)
+                Destroy(zeusVisual.gameObject);
+

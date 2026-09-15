@@ -1,0 +1,11 @@
+﻿    public System.Action onRegenerada;
+
+    /// <summary>
+    /// Si es true, al regenerarse la raqueta NO re-activa su renderer base
+    /// (el que muestra la raqueta default). Lo usa el combate de Zeus para
+    /// evitar el destello de la raqueta base antes de que quede visible Zeus.
+    /// </summary>
+    public bool ocultarRendererBaseAlRegenerar = false;
+
+    // -------------------------------------------------------
+    void Awake()

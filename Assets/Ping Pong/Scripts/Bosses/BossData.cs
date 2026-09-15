@@ -41,6 +41,9 @@ public class BossData
     [Tooltip("Nombre del mapa de combate de este jefe. Debe coincidir con un mapa configurado en MapManager.")]
     public string nombreMapa;
 
+    [Tooltip("Configuración de mapa asociada (opcional). Si se asigna, StartBossBattle la usará en lugar de nombreMapa.")]
+    public MapManager.ConfigMapa mapaAsociado;
+
     /// <summary>
     /// Constructor por defecto requerido por Unity para poder crear
     /// y editar elementos de la lista desde el Inspector.

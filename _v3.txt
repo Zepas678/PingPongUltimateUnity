@@ -1,0 +1,12 @@
+﻿            // Suscribirse a la regeneraciÃ³n de la raqueta CPU: cuando se destruye
+            // visualmente y se regenera (modo Ã©pico), AnimarRegeneracion reactiva el
+            // renderer base; este evento permite re-ocultarla y mantener solo Zeus.
+            SuscribirRegeneracionCPU();
+
+            // Evitar el destello de la raqueta default durante regeneraciones posteriores:
+            // mientras dure el combate de Zeus, AnimarRegeneracion no re-activa la base.
+            GameManager.Instance.golpeRaquetaCPU.ocultarRendererBaseAlRegenerar = true;
+
+            Debug.Log($"[BossManager] Modelo visual Zeus aplicado a la raqueta CPU (hijo '{nombreHijoZeus}').");
+        }
+        else

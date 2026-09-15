@@ -146,7 +146,41 @@ public class PingPongBall : MonoBehaviour
         }
         Debug.Log($"[Colision] speed={currentSpeed:F1} | raquetaGolpe={raquetaGolpe != null}");
 
-        if (raquetaGolpe != null && !raquetaGolpe.PuedeResistir(currentSpeed))
+        // Determinar si el impacto rompe la raqueta, consultando a la raqueta
+        // (RaquetaGolpe.PuedeResistir). En combate contra Colossus, si la raqueta
+        // que recibe el golpe es la del CPU y el jefe está activo, se consulta el
+        // override BossColossus.PuedeResistir: mientras tenga cargas de inmunidad/
+        // resistencia (rebotesResistenciaRestantes > 0) consume UNA carga y aguanta
+        // el impacto en modo épico; solo romperá cuando las cargas lleguen a 0.
+        bool esRaquetaJugador1 = false;
+        if (GameManager.Instance != null)
+            esRaquetaJugador1 = (raquetaGolpe == GameManager.Instance.golpeRaquetaJugador);
+
+        bool puedeResistir = true;
+        if (raquetaGolpe != null)
+        {
+            // Si es la raqueta del CPU y hay un BossColossus activo, usar su override.
+            if (!esRaquetaJugador1 && raquetaGolpe.esJugador == false)
+            {
+                BossColossus[] colossusEnEscena = FindObjectsOfType<BossColossus>(true);
+                BossColossus colossusActivo = null;
+                for (int i = 0; i < colossusEnEscena.Length; i++)
+                {
+                    BossColossus c = colossusEnEscena[i];
+                    if (c != null && c.enabled && c.combateActivo) { colossusActivo = c; break; }
+                }
+                if (colossusActivo != null)
+                    puedeResistir = colossusActivo.PuedeResistir(currentSpeed);
+                else
+                    puedeResistir = raquetaGolpe.PuedeResistir(currentSpeed);
+            }
+            else
+            {
+                puedeResistir = raquetaGolpe.PuedeResistir(currentSpeed);
+            }
+        }
+
+        if (raquetaGolpe != null && !puedeResistir)
         {
             // Determinar quién anota según qué raqueta se rompió.
             // En VS CPU: si se rompe la raqueta J1 -> punto para CPU.
@@ -154,11 +188,11 @@ public class PingPongBall : MonoBehaviour
             //              si se rompe la raqueta J2 -> punto para J1.
             // Comparamos contra las referencias de GameManager en lugar de raquetaGolpe.esJugador,
             // porque en PvP ambas raquetas tienen esJugador = true.
-            bool esRaquetaJugador1 = (GameManager.Instance != null &&
+            bool esRaquetaJugadorUno = (GameManager.Instance != null &&
                                       raquetaGolpe == GameManager.Instance.golpeRaquetaJugador);
             // playerScored = true  cuando NO se rompió la raqueta del jugador 1
             //              = false cuando SÍ se rompió la raqueta del jugador 1 (anota el oponente)
-            ForzarRespawn(!esRaquetaJugador1);
+            ForzarRespawn(!esRaquetaJugadorUno);
             GameManager.Instance?.RegenerarRaquetas(0.35f);
             return;
         }
@@ -181,17 +215,20 @@ public class PingPongBall : MonoBehaviour
         bool fueGolpeJugador = raquetaGolpe != null && raquetaGolpe.esJugador;
         ComboManager.Instance?.RegistrarGolpe(fueGolpeJugador, currentSpeed);
 
+        // ── Notificación de golpe de CPU al jefe activo ──
+        // Se elimina la llamada directa hardcodeada a BossZeus. En su lugar se
+        // detecta el jefe activo en el momento del golpe:
+        //   1) BossZeus:      existe, enabled y combateActivo == true → ActivarHabilidadDesdeGolpeCPU()
+        //   2) BossColossus:  existe, enabled y combateActivo == true → ActivarHabilidadDesdeGolpeCPU()
+        //   3) Cualquier otro BossController activo (compatibilidad genérica).
+        string jefeNotificado = null;
+        if (!fueGolpeJugador)
+            jefeNotificado = NotificarGolpeJefeActivoCPU(velocidadXAntesDelGolpe, currentSpeed);
+
         // ── DIAGNÓSTICO TEMPORAL: cada golpe de raqueta ──
         BossZeus bossZeusDiag = FindObjectOfType<BossZeus>();
-        Debug.Log($"[DIAG GOLPE] raqueta='{collision.gameObject.name}' | fueGolpeJugador={fueGolpeJugador} | X_ANTES={velocidadXAntesDelGolpe:F2} | X_DESPUES={rb.linearVelocity.x:F2} | velocidad={rb.linearVelocity} | llamarBossZeus={!fueGolpeJugador} | bossZeusExiste={(bossZeusDiag != null)} | estrellaEsperando={(bossZeusDiag != null ? bossZeusDiag.EstrellaEsperandoGolpeDiag : false)} | teleTP={(bossZeusDiag != null ? bossZeusDiag.TeletransporteEnProgresoDiag : false)}");
-
-        // Si el golpe fue de la CPU, notificar a BossZeus para activar la habilidad
-        if (!fueGolpeJugador)
-        {
-            BossZeus bossZeus = BossZeus.Instance;
-            if (bossZeus != null)
-                bossZeus.ActivarHabilidadDesdeGolpeCPU(velocidadXAntesDelGolpe);
-        }
+        bool zeusActivo = bossZeusDiag != null && bossZeusDiag.enabled && bossZeusDiag.combateActivo;
+        Debug.Log($"[DIAG GOLPE] raqueta='{collision.gameObject.name}' | fueGolpeJugador={fueGolpeJugador} | X_ANTES={velocidadXAntesDelGolpe:F2} | X_DESPUES={rb.linearVelocity.x:F2} | velocidad={rb.linearVelocity} | jefeActivo={jefeNotificado ?? "NINGUNO"} | bossZeusActivo={zeusActivo} | estrellaEsperando={(zeusActivo ? bossZeusDiag.EstrellaEsperandoGolpeDiag : false)} | teleTP={(zeusActivo ? bossZeusDiag.TeletransporteEnProgresoDiag : false)}");
 
         // Animación de golpe — solo si el jugador presionó el botón
         // Para la CPU siempre anima (ya lo controla CPUControl)
@@ -232,6 +269,63 @@ public class PingPongBall : MonoBehaviour
         rb.linearVelocity = vel;
     }
 
+    // -------------------------------------------------------
+    /// <summary>
+    /// Detecta el jefe activo en el momento del golpe de CPU y notifica su
+    /// habilidad/golpe específico. Un jefe se considera "activo" si su componente
+    /// está habilitado (enabled) y su combate está en curso (combateActivo).
+    /// Orden de detección:
+    ///   1) BossZeus      → ActivarHabilidadDesdeGolpeCPU(velocidadXAntes)
+    ///   2) BossColossus  → ActivarHabilidadDesdeGolpeCPU(velocidadActual)
+    ///   3) Otro BossController activo (compatibilidad genérica).
+    /// </summary>
+    /// <param name="velocidadXAntesDelGolpe">Dirección X de la pelota ANTES del golpe (la usa Zeus).</param>
+    /// <param name="velocidadActual">Velocidad actual de la pelota (la usa Colossus / otros).</param>
+    /// <returns>Nombre del jefe notificado, o null si no hay ningún jefe activo.</returns>
+    private string NotificarGolpeJefeActivoCPU(float velocidadXAntesDelGolpe, float velocidadActual)
+    {
+        // 1. BossZeus: existe, está habilitado y su combate está en curso.
+        BossZeus[] zeusEnEscena = FindObjectsOfType<BossZeus>(true);
+        for (int i = 0; i < zeusEnEscena.Length; i++)
+        {
+            BossZeus z = zeusEnEscena[i];
+            if (z == null) continue;
+            if (!z.enabled || !z.combateActivo) continue;
+
+            z.ActivarHabilidadDesdeGolpeCPU(velocidadXAntesDelGolpe);
+            return z.gameObject.name;
+        }
+
+        // 2. BossColossus: existe, está habilitado y su combate está en curso.
+        BossColossus[] colossusEnEscena = FindObjectsOfType<BossColossus>(true);
+        for (int i = 0; i < colossusEnEscena.Length; i++)
+        {
+            BossColossus c = colossusEnEscena[i];
+            if (c == null) continue;
+            if (!c.enabled || !c.combateActivo) continue;
+
+            c.ActivarHabilidadDesdeGolpeCPU(velocidadActual);
+            return c.gameObject.name;
+        }
+
+        // 3. Compatibilidad genérica: cualquier otro BossController activo.
+        BossController[] controllers = FindObjectsOfType<BossController>(true);
+        for (int i = 0; i < controllers.Length; i++)
+        {
+            BossController bc = controllers[i];
+            if (bc == null) continue;
+            if (bc is BossZeus || bc is BossColossus) continue; // ya gestionados
+            if (!bc.enabled || !bc.combateActivo) continue;
+
+            // La clase base BossController no define una API de golpe de CPU; se
+            // podría extender aquí en el futuro. Por ahora solo se registra.
+            Debug.Log($"[Boss] Jefe activo (genérico) '{bc.gameObject.name}' — sin habilidad de golpe CPU específica.");
+            return bc.gameObject.name;
+        }
+
+        // Sin jefe activo.
+        return null;
+    }
     // -------------------------------------------------------
     void HandleSideWallCollision(Collision collision)
     {

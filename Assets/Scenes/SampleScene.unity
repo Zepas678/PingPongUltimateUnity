@@ -739,7 +739,8 @@ Transform:
   m_LocalPosition: {x: -348.2041, y: -96.8501, z: 681.4226}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 1942430823054315328}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &61402863
@@ -2406,10 +2407,10 @@ RectTransform:
   - {fileID: 1118578620}
   m_Father: {fileID: 1612740387}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 330, y: -160}
-  m_SizeDelta: {x: 200, y: 280}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &193101689
 MonoBehaviour:
@@ -3271,7 +3272,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "HISTORIA\n(Pr\xF3ximamente)"
+  m_text: HISTORIA
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -3499,10 +3500,10 @@ RectTransform:
   - {fileID: 2061843941}
   m_Father: {fileID: 1612740387}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 990, y: -160}
-  m_SizeDelta: {x: 200, y: 280}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &246713105
 MonoBehaviour:
@@ -8886,6 +8887,33 @@ MonoBehaviour:
     desbloqueado: 1
     derrotado: 0
     nombreMapa: MapaNubesV11
+    mapaAsociado:
+      nombre: MapaNubesV11
+      prefab: {fileID: 3518537341004825753, guid: 078643dcad74c024f803f37dff01cc02, type: 3}
+      posicion: {x: 0, y: 0, z: 0}
+      escala: {x: 1, y: 1, z: 1}
+      rotacion: {x: 0, y: 0, z: 0}
+      skybox: {fileID: 0}
+      velocidadSkybox: 0
+  - id: 2
+    nombre: Colossus
+    titulo: Fortaleza Inquebrantable
+    descripcion: "Raqueta gigante de alta resistencia. Resiste golpes \xE9picos/
+      velocidad por fases"
+    imagen: {fileID: 0}
+    colorTema: {r: 0, g: 0, b: 0, a: 0}
+    dificultad: 4
+    desbloqueado: 1
+    derrotado: 0
+    nombreMapa: Mapa de lavaV1 Variant
+    mapaAsociado:
+      nombre: Mapa de lavaV1 Variant
+      prefab: {fileID: 18998670296861832, guid: 654886f0b381a634cb28a4171ab73a87, type: 3}
+      posicion: {x: 0, y: 0, z: 0}
+      escala: {x: 1, y: 1, z: 1}
+      rotacion: {x: 0, y: 0, z: 0}
+      skybox: {fileID: 0}
+      velocidadSkybox: 0
   currentBossIndex: 0
   imagenJefe: {fileID: 440704205}
   textoNombre: {fileID: 1304979576}
@@ -13391,7 +13419,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -4.000122, y: 0}
+  m_AnchoredPosition: {x: -4.000183, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &665665626
@@ -14272,6 +14300,117 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &762038012
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 762038013}
+  - component: {fileID: 762038014}
+  m_Layer: 0
+  m_Name: BossColossus
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &762038013
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 762038012}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2041303427}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &762038014
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 762038012}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d7f3b820706deed41ad42ec7b97099ce, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  bossData:
+    id: 2
+    nombre: Colossus
+    titulo: La Fortaleza Inquebrantable
+    descripcion: "Raqueta gigante de alta resistencia. Resiste golpes \xE9picos y
+      aumenta su tama\xF1o/velocidad por fases."
+    imagen: {fileID: 0}
+    colorTema: {r: 0, g: 0, b: 0, a: 0}
+    dificultad: 4
+    desbloqueado: 1
+    derrotado: 0
+    nombreMapa: Mapa de lavaV1 Variant
+    mapaAsociado:
+      nombre: Lava
+      prefab: {fileID: 18998670296861832, guid: 654886f0b381a634cb28a4171ab73a87, type: 3}
+      posicion: {x: 0, y: 0, z: 0}
+      escala: {x: 1, y: 1, z: 1}
+      rotacion: {x: 0, y: 0, z: 0}
+      skybox: {fileID: 0}
+      velocidadSkybox: 0
+  combateActivo: 1
+  derrotado: 0
+  gameManager: {fileID: 686527993}
+  ball: {fileID: 1506589455}
+  jugador: {fileID: 1152189662}
+  jefe: {fileID: 6827183236759525433, guid: ffc3782c7984d324c9451fb42b83fcf7, type: 3}
+  mesa: {fileID: 0}
+  duracionFortaleza: 4
+  multiplicadorFuerzaGolpe: 1.6
+  escalaFortaleza: {x: 1.35, y: 1, z: 1.7}
+  umbralVelocidadEpica: 110
+  umbralVelocidadShockwave: 100
+  faseActual: 1
+  avanzarFasePorGolpesMaximos: 1
+  prefabParticulasFortaleza: {fileID: 647912877782216083, guid: 83b25b88ac2a41d44b0dd0b5dc560c2e, type: 3}
+  efectoInmunidad: {fileID: 3318425040390797593, guid: 83b25b88ac2a41d44b0dd0b5dc560c2e, type: 3}
+  sonidoFortaleza: {fileID: 8300000, guid: a0e9e5ce516aae1458b80de4b295ebd0, type: 3}
+  sonidoGolpeAbsorbido: {fileID: 8300000, guid: 7aaacadb65f92e844aa55574be360881, type: 3}
+  sonidoCambioFase: {fileID: 8300000, guid: 4d9cf6abc78c07d49be5c0c427821e4e, type: 3}
+  audioSourceColossus: {fileID: 0}
+  sonidoAbsorcionFortaleza: {fileID: 8300000, guid: 7aaacadb65f92e844aa55574be360881, type: 3}
+  sonidoRupturaRaqueta: {fileID: 8300000, guid: a0e9e5ce516aae1458b80de4b295ebd0, type: 3}
+  sonidoCambioDeFase: {fileID: 8300000, guid: 4d9cf6abc78c07d49be5c0c427821e4e, type: 3}
+  prefabSkinColossus: {fileID: 0}
+  prefabOndaDeChoque: {fileID: 647912877782216083, guid: 83b25b88ac2a41d44b0dd0b5dc560c2e, type: 3}
+  sonidoOndaDeChoque: {fileID: 8300000, guid: 50b3c3303cc67f24e9ff1e5bdfc59344, type: 3}
+  cooldownOndaDeChoque: 3
+  multiplicadorImpulsoOnda: 1.5
+  alturaEfectoOnda: 0.3
+  rotacionEfectoOnda: {x: 0, y: 0, z: 0}
+  duracionEfectoOnda: 2
+  crecimientoPorPunto: 0.04
+  escalaInicialRaqueta: {x: 73.9, y: 23.5, z: 313.7}
+  escalaMaximaRaqueta: {x: 507.8, y: 155.5, z: 2071}
+  puntosParaEscalaMaxima: 7
+  maxFraccionAnchoMesa: 0.9
+  reiniciarInmunidadPorPunto: 1
+  forzarDificultadInhumano: 1
+  multiplicadorResistenciaInhumano: 2
+  cargasBaseResistenciaInhumano: 1
+  transformColliderRaqueta: {fileID: 0}
+  puntosParaCentrar: 6
+  fraccionAnchoParaCentrar: 0.8
+  ejeLateralEsX: 0
+  activarAccesoriosMalla: 1
+  rotacionVisualFallback: {x: -1, y: 0.00000004371139, z: -0.00000004371139, w: 1.9106855e-15}
+  escalaVisualFallback: {x: -1.081282, y: -1.392614, z: -1.022877}
 --- !u!1 &763776439
 GameObject:
   m_ObjectHideFlags: 0
@@ -14354,7 +14493,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 763776442}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 257652965}
+        m_TargetAssemblyTypeName: BossManager, Assembly-CSharp
+        m_MethodName: PreviousBoss
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &763776442
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -22664,10 +22815,10 @@ RectTransform:
   - {fileID: 223879580}
   m_Father: {fileID: 1612740387}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 770, y: -160}
-  m_SizeDelta: {x: 200, y: 280}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1071564592
 MonoBehaviour:
@@ -24031,6 +24182,7 @@ MonoBehaviour:
   multiplicadorGolpe: 1.2
   extraTamanoCollider: 0.3
   esJugador: 1
+  ocultarRendererBaseAlRegenerar: 0
 --- !u!114 &1152189669
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -24819,10 +24971,10 @@ RectTransform:
   - {fileID: 1370430735}
   m_Father: {fileID: 1612740387}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 550, y: -160}
-  m_SizeDelta: {x: 200, y: 280}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1229896077
 MonoBehaviour:
@@ -29123,7 +29275,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1531206462}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 257652965}
+        m_TargetAssemblyTypeName: BossManager, Assembly-CSharp
+        m_MethodName: NextBoss
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1531206462
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -31559,7 +31723,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1660922254
 RectTransform:
   m_ObjectHideFlags: 0
@@ -31579,7 +31743,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -0.7998047, y: 0.34240723}
+  m_AnchoredPosition: {x: -0.7998657, y: 0.34240723}
   m_SizeDelta: {x: -1360.1, y: -667.52}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1660922255
@@ -32277,6 +32441,7 @@ MonoBehaviour:
   multiplicadorGolpe: 1.2
   extraTamanoCollider: 0.5
   esJugador: 0
+  ocultarRendererBaseAlRegenerar: 0
 --- !u!114 &1736423501
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -34153,13 +34318,22 @@ MonoBehaviour:
     dificultad: 4
     desbloqueado: 0
     derrotado: 0
-    nombreMapa: 
+    nombreMapa: MapaNubesV11
+    mapaAsociado:
+      nombre: Mapa Nube
+      prefab: {fileID: 3518537341004825753, guid: 078643dcad74c024f803f37dff01cc02, type: 3}
+      posicion: {x: 0, y: 0, z: 0}
+      escala: {x: 1, y: 1, z: 1}
+      rotacion: {x: 0, y: 0, z: 0}
+      skybox: {fileID: 0}
+      velocidadSkybox: 0
   combateActivo: 1
   derrotado: 0
   gameManager: {fileID: 686527993}
   ball: {fileID: 1506589455}
   jugador: {fileID: 1152189662}
   jefe: {fileID: -8679921383154817045, guid: 12725187694770946a38d68c4ea7e91a, type: 3}
+  mesa: {fileID: 0}
   tiempoEntreAtaques: 3
   distanciaFrenteJugador: -20
   efectoRayoPrefab: {fileID: 2475364553131810745, guid: c9fdcbe4be9511445a595599c1fe6eeb, type: 3}
@@ -34207,10 +34381,10 @@ RectTransform:
   - {fileID: 1482390015}
   m_Father: {fileID: 1612740387}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 110, y: -160}
-  m_SizeDelta: {x: 200, y: 280}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1914531083
 MonoBehaviour:
@@ -34576,7 +34750,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1921878595}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1016606716}
+        m_TargetAssemblyTypeName: UIManager, Assembly-CSharp
+        m_MethodName: OnClickVolverModos
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1921878595
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -36531,6 +36717,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1914414459}
+  - {fileID: 762038013}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2061843940
@@ -37308,6 +37495,68 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2144734448}
   m_CullTransparentMesh: 1
+--- !u!1001 &1942430823054315327
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 51290110}
+    m_Modifications:
+    - target: {fileID: 647912877782216083, guid: 83b25b88ac2a41d44b0dd0b5dc560c2e, type: 3}
+      propertyPath: m_Name
+      value: Shockwave_Colossus
+      objectReference: {fileID: 0}
+    - target: {fileID: 6944920184932810456, guid: 83b25b88ac2a41d44b0dd0b5dc560c2e, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6944920184932810456, guid: 83b25b88ac2a41d44b0dd0b5dc560c2e, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6944920184932810456, guid: 83b25b88ac2a41d44b0dd0b5dc560c2e, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6944920184932810456, guid: 83b25b88ac2a41d44b0dd0b5dc560c2e, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6944920184932810456, guid: 83b25b88ac2a41d44b0dd0b5dc560c2e, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6944920184932810456, guid: 83b25b88ac2a41d44b0dd0b5dc560c2e, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6944920184932810456, guid: 83b25b88ac2a41d44b0dd0b5dc560c2e, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6944920184932810456, guid: 83b25b88ac2a41d44b0dd0b5dc560c2e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: -90
+      objectReference: {fileID: 0}
+    - target: {fileID: 6944920184932810456, guid: 83b25b88ac2a41d44b0dd0b5dc560c2e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6944920184932810456, guid: 83b25b88ac2a41d44b0dd0b5dc560c2e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 83b25b88ac2a41d44b0dd0b5dc560c2e, type: 3}
+--- !u!4 &1942430823054315328 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 6944920184932810456, guid: 83b25b88ac2a41d44b0dd0b5dc560c2e, type: 3}
+  m_PrefabInstance: {fileID: 1942430823054315327}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &4644334918774188102
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -37476,7 +37725,6 @@ SceneRoots:
   - {fileID: 11497759}
   - {fileID: 1527671971}
   - {fileID: 1885688117}
-  - {fileID: 51290110}
   - {fileID: 1016606715}
   - {fileID: 532234793}
   - {fileID: 418403314}
@@ -37486,6 +37734,7 @@ SceneRoots:
   - {fileID: 251572842}
   - {fileID: 1018370075}
   - {fileID: 253331587}
+  - {fileID: 51290110}
   - {fileID: 4644334918774188102}
   - {fileID: 8047618429040155113}
   - {fileID: 1888331305}

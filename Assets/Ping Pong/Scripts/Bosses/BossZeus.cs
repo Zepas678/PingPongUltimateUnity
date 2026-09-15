@@ -427,25 +427,21 @@ public class BossZeus : BossController
     // ──────────────────────────────────────────────
     /// <summary>
     /// Calcula el desplazamiento lateral máximo seguro para el teletransporte,
-    /// usando el ancho real de la mesa (objeto "Tablanube" y su BoxCollider).
+    /// usando el ancho REAL de la mesa de forma generalizada (por tag "Mesa" o
+    /// por la referencia 'mesa' de la clase base BossController). No depende del
+    /// nombre del objeto de la mesa (p. ej. "Tablanube").
     /// Usa el 35% de la mitad del ancho para mantener la pelota dentro de los límites.
     /// </summary>
     private float CalcularDesplazamientoLateral(Vector3 ejeTransversal)
     {
-        // Buscar específicamente el objeto "Tablanube" (la mesa del mapa de nubes).
-        GameObject tablanube = GameObject.Find("Tablanube");
-        if (tablanube != null)
+        // Límites generalizados de la mesa vía la clase base (BossController).
+        if (ObtenerDatosMesa(out _, out Vector3 tamanoMesa))
         {
-            BoxCollider boxCollider = tablanube.GetComponent<BoxCollider>();
-            if (boxCollider != null)
+            float anchoRealZ = tamanoMesa.z;
+            if (anchoRealZ > 0.01f)
             {
-                // bounds.size.z ya incluye la escala del Transform (51 * 0.6929 ≈ 35.34).
-                float anchoRealZ = boxCollider.bounds.size.z;
-                if (anchoRealZ > 0.01f)
-                {
-                    // 35% de la mitad del ancho: margen de seguridad dentro de la mesa.
-                    return (anchoRealZ / 2f) * 0.35f;
-                }
+                // 35% de la mitad del ancho: margen de seguridad dentro de la mesa.
+                return (anchoRealZ / 2f) * 0.35f;
             }
         }
 
@@ -954,6 +950,12 @@ public class BossZeus : BossController
     /// </summary>
     private void FinalizarRayo()
     {
+        // Seguridad: si no hay ningún estado de rayo activo, salir sin tocar
+        // referencias (evita acceder a objetos destruidos o nulos cuando la
+        // partida se interrumpe a mitad de un ataque).
+        if (rayoInstanciado == null && lineRendererRayo == null && !rayoActivo)
+            return;
+
         // ── Diagnóstico: ¿se destruye antes de tiempo? ──
         Debug.Log($"[BossZeus] DIAG: FinalizarRayo() frame={Time.frameCount} | time={Time.time:F3} | rayoInstanciado={(rayoInstanciado != null ? "EXISTE" : "NULL")} | rayoActivo={rayoActivo} | activeSelf={(rayoInstanciado != null ? rayoInstanciado.activeSelf.ToString() : "N/A")} | activeInHierarchy={(rayoInstanciado != null ? rayoInstanciado.activeInHierarchy.ToString() : "N/A")}");
 
@@ -997,23 +999,31 @@ public class BossZeus : BossController
         base.FinalizarCombate();
 
         // Cancelar cualquier coroutine pendiente (p. ej. la secuencia de
-        // teletransporte esperando por WaitForSeconds) para que no persista
-        // tras salir del combate del jefe.
+        // teletransporte esperando por WaitForSeconds, rayo o estrella) para
+        // que no persista tras salir del combate del jefe.
         StopAllCoroutines();
 
         estado = EstadoZeus.Listo;
 
-        // Limpiar el rayo y la estrella pendiente si siguen activos
+        // Resetear TODOS los estados internos a un punto limpio y seguro,
+        // incluso si la partida se interrumpió a mitad de una secuencia
+        // (interupción normal, cambio de escena o vuelta a VS CPU/PvP).
         finalizandoRayo = false;
         teletransporteEnProgreso = false;
         estrellaEsperandoGolpe = false;
+        pelotaYaViajabaHaciaJugador = false;
 
+        // Limpiar la estrella pendiente si sigue activa (null-safe).
         if (estrellaPendiente != null)
         {
-            Destroy(estrellaPendiente);
+            if (estrellaPendiente != null)
+                Destroy(estrellaPendiente);
             estrellaPendiente = null;
         }
 
+        // Limpiar el rayo de forma segura. FinalizarRayo() valida internamente
+        // que las referencias no sean nulas antes de usarlas, evitando errores
+        // cuando la partida se interrumpe a mitad de un ataque.
         FinalizarRayo();
 
         Debug.Log("[BossZeus] FinalizarCombate() ejecutado.");
