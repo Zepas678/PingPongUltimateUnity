@@ -308,13 +308,26 @@ public class PingPongBall : MonoBehaviour
             return c.gameObject.name;
         }
 
+        // 2. BossMirage: existe, está habilitado y su combate está en curso.
+        BossMirage[] mirageEnEscena = FindObjectsOfType<BossMirage>(true);
+        for (int i = 0; i < mirageEnEscena.Length; i++)
+        {
+            BossMirage m = mirageEnEscena[i];
+            if (m == null) continue;
+            if (!m.enabled || !m.combateActivo) continue;
+
+            Debug.Log("[PingPongBall] Colision detectada con Raqueta CPU. Notificando a BossMirage...");
+            m.NotificarGolpeCPU();
+            return m.gameObject.name;
+        }
+
         // 3. Compatibilidad genérica: cualquier otro BossController activo.
         BossController[] controllers = FindObjectsOfType<BossController>(true);
         for (int i = 0; i < controllers.Length; i++)
         {
             BossController bc = controllers[i];
             if (bc == null) continue;
-            if (bc is BossZeus || bc is BossColossus) continue; // ya gestionados
+            if (bc is BossZeus || bc is BossColossus || bc is BossMirage) continue; // ya gestionados
             if (!bc.enabled || !bc.combateActivo) continue;
 
             // La clase base BossController no define una API de golpe de CPU; se

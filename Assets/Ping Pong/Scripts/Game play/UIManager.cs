@@ -351,6 +351,21 @@ public class UIManager : MonoBehaviour
     {
         MostrarPanel(panelGameOver);
 
+        // Si el jugador ganó un combate de jefe, registrar la victoria para
+        // desbloquear al siguiente (Zeus -> Colossus -> Mirage) vía PlayerPrefs.
+        if (ganoJugador && !esTorneo)
+        {
+            BossManager bossManager = FindObjectOfType<BossManager>();
+            if (bossManager != null && bossManager.JefeActivo != null)
+            {
+                BossData jefeVencido = bossManager.JefeActivo.bossData;
+                if (jefeVencido == null && bossManager.bosses != null)
+                    jefeVencido = bossManager.bosses.Find(b => b != null && b.nombre == bossManager.JefeActivo.gameObject.name);
+                if (jefeVencido != null)
+                    bossManager.RegistrarVictoriaJefe(jefeVencido);
+            }
+        }
+
         if (gameOverTexto != null)
             gameOverTexto.text = ganoJugador
                 ? $"¡ {nombreJugador.ToUpper()} GANA !"

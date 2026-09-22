@@ -269,6 +269,31 @@ public class GameManager : MonoBehaviour
 
         bool ganoJugador = playerScore > cpuScore;
 
+        // Hook de victoria de jefe: si el jugador ganó (juego normal, debugWin o
+        // CheckVictory), registrarla para desbloquear al siguiente.
+        // JefeActivo persiste durante todo el combate (solo se limpia al volver
+        // al menú); si por error llegó null, fallback al seleccionado en el menú.
+        if (ganoJugador)
+        {
+            BossData jefeAAcreditar = null;
+            if (BossManager.Instance != null)
+            {
+                if (BossManager.Instance.JefeActivo != null)
+                    jefeAAcreditar = BossManager.Instance.ResolverBossDataVictoria(BossManager.Instance.JefeActivo);
+                if (jefeAAcreditar == null)
+                    jefeAAcreditar = BossManager.Instance.ObtenerJefeActualSeleccionado();
+            }
+            if (jefeAAcreditar != null)
+            {
+                Debug.Log($"[GameManager] Victoria de jefe detectada para: {jefeAAcreditar.nombre}");
+                BossManager.Instance.RegistrarVictoriaJefe(jefeAAcreditar);
+            }
+            else
+            {
+                Debug.Log("[GameManager] Fin de partida ganado sin JefeActivo (partida normal, no jefe).");
+            }
+        }
+
         // Si es modo torneo, registrar el resultado automáticamente
         if (esModoTorneo)
         {
@@ -327,11 +352,20 @@ public class GameManager : MonoBehaviour
         // destruye JefeVisual_CPU y ZeusVisual_CPU, des-suscribe regeneración y
         // reactiva los renderers de la raqueta base. Así la raqueta queda limpia para
         // partidas normales (VS CPU, Torneo, 2 Jugadores).
+        // NOTA: NO se pone JefeActivo = null aquí: BossManager lo asignó ANTES de
+        // crear la partida y debe persistir durante TODO el combate para que
+        // EndGame() sepa contra qué jefe se jugó. Solo se limpia al volver al menú.
         if (bossManager != null)
             bossManager.LimpiarVisualJefeCPU();
+    }
 
-        // Liberar la referencia al jefe preparado: la limpieza global ya se aplicó
-        // y a partir de aquí BossManager re-activa explícitamente al jefe correcto.
+    /// <summary>
+    /// Limpieza explícita al volver al menú principal / reinicio total.
+    /// Único punto donde JefeActivo debe ponerse en null.
+    /// </summary>
+    public void LimpiarJefeActivoAlVolverAlMenu()
+    {
+        BossManager bossManager = FindObjectOfType<BossManager>();
         if (bossManager != null)
             bossManager.JefeActivo = null;
     }
