@@ -32,12 +32,20 @@ public class UIManager : MonoBehaviour
     [Header("Game Over")]
     public TMP_Text gameOverTexto;
     public TMP_Text gameOverMarcadorFinal;
+    [Tooltip("Texto de recompensa en el panel Victoria/Derrota (ej: +25 POLLOCOINS). Se deja vacío si no hubo.")]
+    public TMP_Text gameOverTextoPollocoins;
     public GameObject botonReintentar;
     public GameObject botonContinuarTorneo;
     public GameObject botonNuevoTorneo;
 
     [Header("Nombre del jugador")]
     public string nombreJugador = "Jugador";
+
+    [Header("Widget Pollocoins (tienda / recompensas)")]
+    [Tooltip("Si es true, el Widget_Pollocoins vive dentro de la tienda y UIManager lo muestra/oculta según panelTienda.")]
+    public GameObject panelTienda;
+    [Tooltip("Alias del widget (si se deja vacío se usa el de EconomyManager).")]
+    public GameObject widgetPollocoins;
 
     // Flag para saber si venimos del modo PvP al confirmar mapa
     private bool esperandoMapaPvP = false;
@@ -56,6 +64,38 @@ public class UIManager : MonoBehaviour
             toastPunto.gameObject.SetActive(false);
     }
 
+    /// <summary>
+    /// ¿Está activa la tienda? SOLO panelTienda (o panelSkins como respaldo).
+    /// panelMapas (selección de mapas para jugar) NO cuenta como tienda:
+    /// ahí el widget DEBE estar oculto por defecto.
+    /// </summary>
+    public bool TiendaActiva()
+    {
+        if (panelTienda != null) return panelTienda.activeInHierarchy;
+        // Respaldo: la tienda vive en panelSkins (secciones Skins/Mapas de la tienda).
+        if (panelSkins != null && panelSkins.activeInHierarchy) return true;
+        return false;
+    }
+
+    /// <summary>
+    /// Widget visible PERMANENTEMENTE solo con la tienda activa; oculto en el resto.
+    /// Llamar tras cada MostrarPanel().
+    /// </summary>
+    public void ActualizarVisibilidadWidgetTienda()
+    {
+        GameObject widget = widgetPollocoins != null
+            ? widgetPollocoins
+            : (EconomyManager.Instance != null ? EconomyManager.Instance.widgetPollocoins : null);
+        if (EconomyManager.Instance == null) return;
+        // Sincronizar referencia si UIManager tiene alias propio.
+        if (widgetPollocoins != null && EconomyManager.Instance.widgetPollocoins == null)
+            EconomyManager.Instance.widgetPollocoins = widgetPollocoins;
+        if (TiendaActiva())
+            EconomyManager.Instance.MostrarWidgetPollocoins();
+        else if (widget != null || EconomyManager.Instance.widgetPollocoins != null)
+            EconomyManager.Instance.OcultarWidgetPollocoins();
+    }
+
     // -------------------------------------------------------
     public void MostrarPanel(GameObject panel)
     {
@@ -70,6 +110,8 @@ public class UIManager : MonoBehaviour
         panelTorneo?.SetActive(false);
         panelBosses?.SetActive(false);
         panel?.SetActive(true);
+        // El widget solo vive con la tienda; en el resto se retrae.
+        ActualizarVisibilidadWidgetTienda();
     }
 
     // -------------------------------------------------------
@@ -91,15 +133,24 @@ public class UIManager : MonoBehaviour
     public void OnClickModoVsCPU()
     {
         esperandoMapaPvP = false;
+        // Releer la skin recién equipada justo antes de cargar la partida.
+        GameManager.Instance?.AplicarSkinEquipadaAlIniciar();
         MostrarPanel(panelMapas);
+        MapManager.Instance?.SincronizarCarruselConSeleccion();
     }
 
     // Confirmar mapa — va a dificultad si es VS CPU, o inicia PvP directamente
     public void OnClickConfirmarMapa()
     {
+        // BLOQUEO OBLIGATORIO: si el mapa enfocado está BLOQUEADO no se inicia nada.
+        if (MapManager.Instance != null && !MapManager.Instance.PuedeJugarMapaEnfocado()) { return; }
+        // La skin pudo cambiarse en la tienda en esta misma sesión: aplicarla ya.
+        GameManager.Instance?.AplicarSkinEquipadaAlIniciar();
         if (esperandoMapaPvP)
         {
             esperandoMapaPvP = false;
+            // Salir del fondo demo también en PvP (GameplayCamera + controles).
+            MainMenuBackgroundManager.Instance?.SalirDelDemoHaciaPartida();
             GameManager.Instance?.IniciarPartidaPvP();
             MostrarPanel(panelHUD);
         }
@@ -118,7 +169,10 @@ public class UIManager : MonoBehaviour
     public void OnClickModoPvP()
     {
         esperandoMapaPvP = true;
+        // Releer la skin recién equipada justo antes de cargar la partida.
+        GameManager.Instance?.AplicarSkinEquipadaAlIniciar();
         MostrarPanel(panelMapas);
+        MapManager.Instance?.SincronizarCarruselConSeleccion();
     }
 
     // --- Card Torneo ---
@@ -202,17 +256,23 @@ public class UIManager : MonoBehaviour
         }
 
         MostrarPanel(panelMenuPrincipal);
+        // Fondo dinámico: mapa aleatorio + demo CPU vs CPU en MenuCamera.
+        MainMenuBackgroundManager.Instance?.EntrarAlMenuPrincipal();
     }
 
     /// <summary>
     /// Inicia una partida normal VS CPU con la dificultad indicada.
+    /// BLOQUEO OBLIGATORIO: si el mapa está BLOQUEADO no cambia de escena.
     /// Configura la dificultad, llama a GameManager.IniciarPartida()
     /// (que reinicia scores, activa CPU, desactiva P2 y resetea la pelota)
     /// y oculta la UI del menú mostrando el HUD.
     /// </summary>
     public void IniciarPartida(Dificultad d)
     {
+        if (MapManager.Instance != null && !MapManager.Instance.PuedeJugarMapaEnfocado()) { return; }
         Debug.Log($"[UIManager] 3. IniciarPartida({d})");
+        // Salir del fondo demo: GameplayCamera + controles del jugador + mapa elegido.
+        MainMenuBackgroundManager.Instance?.SalirDelDemoHaciaPartida();
         if (GameManager.Instance != null)
         {
             GameManager.Instance.dificultadSeleccionada = d;
@@ -240,6 +300,8 @@ public class UIManager : MonoBehaviour
         Time.timeScale = 1f;
         MostrarPanel(panelMenuPrincipal);
         GameManager.Instance?.VolverAlMenu();
+        // Fondo dinámico: mapa aleatorio + demo CPU vs CPU en MenuCamera.
+        MainMenuBackgroundManager.Instance?.EntrarAlMenuPrincipal();
 
         var practiceUI = FindObjectOfType<PracticeUI>();
         if (practiceUI != null)
@@ -266,6 +328,10 @@ public class UIManager : MonoBehaviour
         GameManager.Instance?.DetenerVolcanes();
         Time.timeScale = 1f;
 
+        // Torneo = partida real: GameplayCamera (no menú).
+        if (MainMenuBackgroundManager.Instance != null)
+            MainMenuBackgroundManager.Instance.SalirDelDemoHaciaPartida();
+
         // Volver al panel del torneo para ver el bracket actualizado
         MostrarPanel(panelTorneo);
     }
@@ -279,6 +345,10 @@ public class UIManager : MonoBehaviour
         // Detener volcanes y restaurar time scale
         GameManager.Instance?.DetenerVolcanes();
         Time.timeScale = 1f;
+
+        // Torneo = partida real: GameplayCamera (no menú).
+        if (MainMenuBackgroundManager.Instance != null)
+            MainMenuBackgroundManager.Instance.SalirDelDemoHaciaPartida();
 
         // Reiniciar el torneo con nuevos competidores
         // CrearNuevoTorneo() ya invoca OnTorneoActualizado, el bracket se actualiza solo
@@ -347,9 +417,21 @@ public class UIManager : MonoBehaviour
     }
 
     // -------------------------------------------------------
-    public void MostrarGameOver(bool ganoJugador, bool esTorneo = false)
+    public void MostrarGameOver(bool ganoJugador, bool esTorneo = false, int pollocoinsGanados = 0)
     {
         MostrarPanel(panelGameOver);
+
+        // Recompensa visible en el panel: "+25 POLLOCOINS" (vacío si no hubo).
+        if (gameOverTextoPollocoins != null)
+        {
+            gameOverTextoPollocoins.text = pollocoinsGanados > 0
+                ? "+" + pollocoinsGanados + " POLLOCOINS"
+                : "";
+        }
+
+        // Widget: deslizar a pantalla + conteo rápido, esperar 2-3s y retraer.
+        if (pollocoinsGanados > 0 && EconomyManager.Instance != null)
+            EconomyManager.Instance.MostrarRecompensaPostPartida();
 
         // Si el jugador ganó un combate de jefe, registrar la victoria para
         // desbloquear al siguiente (Zeus -> Colossus -> Mirage) vía PlayerPrefs.

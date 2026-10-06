@@ -1183,10 +1183,11 @@ public class BossManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Llamar al vencer a un jefe: guarda "BossCompletado_X" + Save, marca
-    /// derrotado y desbloquea al siguiente en la lista. Acepta el BossData de
-    /// la lista o el BossController en escena (resuelve el BossData por
-    /// referencia, nombre de BossData o nombre de GameObject).
+    /// Llamar al vencer a un jefe: guarda "BossCompletado_X" + "JEFE_DERROTADO_x"
+    /// + Save, marca derrotado y desbloquea al siguiente en la lista. Acepta el
+    /// BossData de la lista o el BossController en escena (resuelve el BossData
+    /// por referencia, nombre de BossData o nombre de GameObject).
+    /// El flag JEFE_DERROTADO_[id] habilita el reclamo de mapas en tienda (Opción 2).
     /// </summary>
     public void RegistrarVictoriaJefe(BossData jefe)
     {
@@ -1194,8 +1195,11 @@ public class BossManager : MonoBehaviour
         if (jefe == null) return;
         string clave = ClaveBossCompletado(jefe);
         PlayerPrefs.SetInt(clave, 1);
+        // Opción 2 (reclamar en tienda): JEFE_DERROTADO_[idJefe] = 1.
+        string idJefe = NormalizarNombreJefe(jefe.nombre).Trim().ToLowerInvariant();
+        PlayerPrefs.SetInt(MapManager.ClaveJefeDerrotado(idJefe), 1);
         PlayerPrefs.Save();
-        Debug.Log($"[BossManager] Victoria registrada para clave: {clave}");
+        Debug.Log($"[BossManager] Victoria registrada para clave: {clave} + {MapManager.ClaveJefeDerrotado(idJefe)}");
         jefe.derrotado = true;
         if (bosses != null)
         {
@@ -1203,6 +1207,9 @@ public class BossManager : MonoBehaviour
             if (idx >= 0 && idx + 1 < bosses.Count && bosses[idx + 1] != null)
                 bosses[idx + 1].desbloqueado = true;
         }
+        // Refrescar la tienda: el mapa ligado a este jefe pasa a ¡RECLAMAR!.
+        if (MapManager.Instance != null)
+            MapManager.Instance.ActualizarBotonCompraTienda();
         ActualizarUI();
         Debug.Log($"[BossManager] Victoria contra '{jefe.nombre}' guardada. Siguiente jefe desbloqueado.");
     }

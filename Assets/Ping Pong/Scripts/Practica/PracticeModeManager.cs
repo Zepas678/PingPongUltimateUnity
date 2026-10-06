@@ -36,6 +36,9 @@ public class PracticeModeManager : MonoBehaviour
     public void EnterPracticeMode()
     {
         IsPracticeMode = true;
+        // Salir del fondo demo: GameplayCamera + controles reales de práctica.
+        if (MainMenuBackgroundManager.Instance != null)
+            MainMenuBackgroundManager.Instance.SalirDelDemoHaciaPartida();
 
         // Aplicar gravedad inicial
         Physics.gravity = new Vector3(0f, -gravity, 0f);

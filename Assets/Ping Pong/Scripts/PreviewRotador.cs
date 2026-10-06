@@ -3,19 +3,26 @@ using UnityEngine;
 /// <summary>
 /// Rota el objeto de preview de la raqueta en la cámara secundaria.
 /// Coloca este script en Preview_Raqueta_3D.
+/// La rotación usa Time.unscaledDeltaTime para no pausarse con Time.timeScale
+/// (tienda / submenús pausan el fondo pero el preview sigue girando).
 /// </summary>
 public class PreviewRotador : MonoBehaviour
 {
     [Header("Rotación")]
     public float velocidadRotacion = 45f;
     public Vector3 orientacionInicial = new Vector3(90f, 180f, 0f);
+    [Tooltip("Si es true, rota con tiempo no escalado (sigue girando con Time.timeScale = 0).")]
+    public bool usarTiempoNoEscalado = true;
 
     private GameObject modeloActual;
 
     void Update()
     {
-        if (modeloActual != null)
-            modeloActual.transform.Rotate(Vector3.up, velocidadRotacion * Time.deltaTime, Space.World);
+        if (modeloActual == null) return;
+        float dt = usarTiempoNoEscalado ? Time.unscaledDeltaTime : Time.deltaTime;
+        // Fallback: si el tiempo escalado está pausado, usar no escalado para no congelar.
+        if (!usarTiempoNoEscalado && dt <= 0f) dt = Time.unscaledDeltaTime;
+        modeloActual.transform.Rotate(Vector3.up, velocidadRotacion * dt, Space.World);
     }
 
     /// <summary>

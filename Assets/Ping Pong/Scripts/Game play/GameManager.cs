@@ -102,11 +102,173 @@ public class GameManager : MonoBehaviour
     // -------------------------------------------------------
     void Start()
     {
-    if (cpu != null)
-        cpu.SetDificultad(dificultadSeleccionada);
+        if (cpu != null)
+            cpu.SetDificultad(dificultadSeleccionada);
 
-    if (ball != null)
-        ball.CongelarPelota();
+        // Aplicar la raqueta equipada en la tienda al arrancar el partido.
+        AplicarSkinEquipadaAlIniciar();
+
+        if (ball != null)
+            ball.CongelarPelota();
+    }
+
+    /// <summary>
+    /// Garantiza que la raqueta lleve la skin recién equipada justo antes de
+    /// cargar la partida: relee PlayerPrefs y la aplica a la raqueta 3D.
+    /// Llamar desde UIManager al pulsar JUGAR / confirmar modo (sin reiniciar escena).
+    /// </summary>
+    public void AplicarSkinEquipadaAlIniciar()
+    {
+        // TODO DEBUG-SKIN: log temporal de diagnóstico. Quitar al estabilizar.
+        int skinGuardada = PlayerPrefs.GetInt(SkinManager.CLAVE_SKIN_EQUIPADA, 0);
+        Debug.Log($"[Skin Debug] Skin guardada en PlayerPrefs: {skinGuardada}");
+
+        // Vía 1: SkinManager presente en escena (caso normal).
+        SkinManager skins = SkinManager.Instance != null
+            ? SkinManager.Instance
+            : FindObjectOfType<SkinManager>();
+
+        // Resolver el Renderer de la raqueta del jugador con respaldo en cascada:
+        // 1) referencia del SkinManager, 2) RaquetaGolpe del jugador,
+        // 3) búsqueda por jerarquía (tag Player / nombre Raqueta* / cualquier RaquetaGolpe jugador).
+        Renderer raqueta = skins != null ? skins.rendererRaquetaJugador : null;
+        if (raqueta == null && golpeRaquetaJugador != null)
+            raqueta = golpeRaquetaJugador.GetComponent<Renderer>();
+        if (raqueta == null)
+            raqueta = BuscarRendererRaquetaJugador();
+        if (raqueta == null)
+        {
+            Debug.LogWarning("[Skin Debug] rendererRaquetaJugador es NULL y no se encontró Renderer de raqueta en la jerarquía del jugador. Asigna la referencia en SkinManager o nombra la raqueta 'Raqueta*'.");
+            return;
+        }
+
+        Debug.Log($"[Skin Debug] Renderer destino: {raqueta.gameObject.name} (ruta: {RutaJerarquia(raqueta.transform)})");
+
+        if (skins != null)
+        {
+            // Guardar la referencia auto-resuelta para futuras aplicaciones.
+            skins.rendererRaquetaJugador = raqueta;
+            if (skins.AplicarSkinEquipadaConLog(raqueta))
+            {
+                SuscribirReaplicacionSkin(raqueta);
+                return;
+            }
+            Debug.LogWarning($"[Skin Debug] SkinManager no pudo aplicar la skin {skinGuardada} (prefab/material nulo o índice fuera de rango).");
+            return;
+        }
+
+        // Vía 2 (sin SkinManager en escena): no hay lista de prefabs a mano.
+        Debug.Log($"[Skin Debug] Skin equipada leída: {skinGuardada} (sin SkinManager en escena, no se pudo aplicar material).");
+    }
+
+    // -------------------------------------------------------
+    void OnEnable()
+    {
+        SkinManager.OnSkinEquipada -= AlEquiparSkinTiempoReal;
+        SkinManager.OnSkinEquipada += AlEquiparSkinTiempoReal;
+    }
+
+    void OnDisable()
+    {
+        SkinManager.OnSkinEquipada -= AlEquiparSkinTiempoReal;
+    }
+
+    /// <summary>
+    /// La tienda avisó de un EQUIP en la misma sesión: reaplicar de inmediato
+    /// a la raqueta 3D sin esperar al Start() ni reiniciar.
+    /// </summary>
+    void AlEquiparSkinTiempoReal(int indice)
+    {
+        AplicarSkinEquipadaAlIniciar();
+    }
+
+    /// <summary>
+    /// Busca el Renderer de la raqueta del jugador en la jerarquía:
+    /// 1) objeto taggeado "Player" y sus hijos con RaquetaGolpe.esJugador,
+    /// 2) cualquier RaquetaGolpe con esJugador == true,
+    /// 3) objeto llamado Raqueta* con Renderer.
+    /// </summary>
+    Renderer BuscarRendererRaquetaJugador()
+    {
+        // 1) Bajo el objeto del jugador (tag Player).
+        try
+        {
+            GameObject jugador = GameObject.FindGameObjectWithTag("Player");
+            if (jugador != null)
+            {
+                RaquetaGolpe[] golpes = jugador.GetComponentsInChildren<RaquetaGolpe>(true);
+                foreach (RaquetaGolpe g in golpes)
+                {
+                    if (g != null && g.esJugador)
+                    {
+                        Renderer r = g.GetComponent<Renderer>();
+                        if (r != null) return r;
+                    }
+                }
+            }
+        }
+        catch (System.Exception) { /* tag inexistente: seguir con el resto */ }
+
+        // 2) Cualquier RaquetaGolpe de jugador en escena.
+        RaquetaGolpe[] todos = FindObjectsOfType<RaquetaGolpe>(true);
+        foreach (RaquetaGolpe g in todos)
+        {
+            if (g != null && g.esJugador)
+            {
+                Renderer r = g.GetComponent<Renderer>();
+                if (r != null) return r;
+            }
+        }
+
+        // 3) Por nombre: Raqueta* con Renderer.
+        GameObject[] raquetas = GameObject.FindGameObjectsWithTag("Untagged");
+        foreach (GameObject go in raquetas)
+        {
+            if (go != null && go.name.ToLowerInvariant().Contains("raqueta"))
+            {
+                Renderer r = go.GetComponent<Renderer>();
+                if (r != null) return r;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Re-aplica la skin si la raqueta se regenera tras romperse o si el objeto
+    /// del jugador se instancia dinámicamente después del Start().
+    /// </summary>
+    void SuscribirReaplicacionSkin(Renderer raqueta)
+    {
+        if (raqueta == null) return;
+        RaquetaGolpe golpe = raqueta.GetComponent<RaquetaGolpe>();
+        if (golpe == null && golpeRaquetaJugador != null) golpe = golpeRaquetaJugador;
+        if (golpe == null) return;
+        golpe.onRegenerada -= ReaplicarSkinTrasRegenerar;
+        golpe.onRegenerada += ReaplicarSkinTrasRegenerar;
+    }
+
+    void ReaplicarSkinTrasRegenerar()
+    {
+        SkinManager skins = SkinManager.Instance != null
+            ? SkinManager.Instance
+            : FindObjectOfType<SkinManager>();
+        Renderer raqueta = skins != null ? skins.rendererRaquetaJugador : null;
+        if (raqueta == null && golpeRaquetaJugador != null)
+            raqueta = golpeRaquetaJugador.GetComponent<Renderer>();
+        if (raqueta == null) raqueta = BuscarRendererRaquetaJugador();
+        if (skins != null && raqueta != null)
+            skins.AplicarSkinEquipadaConLog(raqueta);
+    }
+
+    static string RutaJerarquia(Transform t)
+    {
+        string ruta = t != null ? t.name : "?";
+        while (t != null && t.parent != null)
+        {
+            t = t.parent;
+            ruta = t.name + "/" + ruta;
+        }
+        return ruta;
     }
 
     // -------------------------------------------------------
@@ -314,7 +476,46 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        UIManager.Instance?.MostrarGameOver(ganoJugador, esModoTorneo);
+        // Recompensa Pollocoins + texto en el panel de fin de partida.
+        // Prioridad: jefe > torneo > VS CPU. PvP no otorga.
+        int pollocoinsGanados = CalcularRecompensaFinPartida(ganoJugador);
+
+        UIManager.Instance?.MostrarGameOver(ganoJugador, esModoTorneo, pollocoinsGanados);
+    }
+
+    /// <summary>
+    /// Calcula y otorga la recompensa Pollocoins al terminar la partida.
+    /// Jefe vencido > ronda de torneo > dificultad VS CPU. PvP = 0.
+    /// Devuelve la cantidad otorgada para mostrarla en el panel ("+25 POLLOCOINS").
+    /// </summary>
+    int CalcularRecompensaFinPartida(bool ganoJugador)
+    {
+        if (EconomyManager.Instance == null) return 0;
+        // PvP entre humanos: sin recompensa.
+        if (esModoPvP && !esModoTorneo) return 0;
+
+        // 1) Jefe: si hay combate de jefe activo y el jugador ganó.
+        if (ganoJugador && BossManager.Instance != null && BossManager.Instance.JefeActivo != null)
+        {
+            BossData jefe = BossManager.Instance.ResolverBossDataVictoria(BossManager.Instance.JefeActivo);
+            if (jefe == null)
+                jefe = BossManager.Instance.ObtenerJefeActualSeleccionado();
+            string idJefe = jefe != null ? (jefe.nombre ?? "") : BossManager.Instance.JefeActivo.gameObject.name;
+            return EconomyManager.Instance.OtorgarRecompensaJefe(idJefe);
+        }
+
+        // 2) Torneo: según la ronda que se acaba de jugar.
+        if (esModoTorneo && TournamentUIManager.TorneoActual != null)
+        {
+            int ronda = (int)TournamentUIManager.TorneoActual.RondaActual;
+            return EconomyManager.Instance.OtorgarRecompensaTorneo(ronda, ganoJugador);
+        }
+
+        // 3) VS CPU normal: según dificultad seleccionada.
+        if (!esModoTorneo && !esModoPvP)
+            return EconomyManager.Instance.OtorgarRecompensaCPU(dificultadSeleccionada, ganoJugador);
+
+        return 0;
     }
 
     // -------------------------------------------------------
