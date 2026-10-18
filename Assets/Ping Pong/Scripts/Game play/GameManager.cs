@@ -581,8 +581,26 @@ public class GameManager : MonoBehaviour
     }
 
     // -------------------------------------------------------
+    /// <summary>
+    /// Garantiza GameplayCamera al iniciar CUALQUIER partida (Torneo, Jefes,
+    /// Práctica, VS CPU): apaga la MenuCamera, activa la Main Camera y reactiva
+    /// BossManager/controles de inmediato.
+    /// </summary>
+    public static void AsegurarGameplayCamera()
+    {
+        if (MainMenuBackgroundManager.Instance != null)
+            MainMenuBackgroundManager.Instance.SalirDelDemoHaciaPartida();
+        else if (Mathf.Approximately(Time.timeScale, 0f))
+            Time.timeScale = 1f;
+    }
+
+    // -------------------------------------------------------
     public void IniciarPartida()
     {
+        AsegurarGameplayCamera();
+        // Fuera de torneo: quitar skin de torneo y poner la de tienda/perfil.
+        if (SkinManager.Instance != null) SkinManager.Instance.RestaurarSkinTienda();
+        else { SkinManager sm = FindObjectOfType<SkinManager>(); if (sm != null) sm.RestaurarSkinTienda(); }
         Debug.Log("[GameManager] 4. IniciarPartida()");
 
         // Al iniciar una partida normal VS CPU se cancela cualquier combate de
@@ -618,6 +636,7 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void IniciarPartidaTorneo()
     {
+        AsegurarGameplayCamera();
         Debug.Log("[GameManager.IniciarPartidaTorneo] === INICIO ===");
 
         Match partido = TournamentUIManager.PartidoActualJugando;
@@ -712,6 +731,10 @@ public class GameManager : MonoBehaviour
     // -------------------------------------------------------
     public void IniciarPartidaPvP()
     {
+        AsegurarGameplayCamera();
+        // 2 Jugadores: skin de tienda/perfil, no de torneo.
+        if (SkinManager.Instance != null) SkinManager.Instance.RestaurarSkinTienda();
+        else { SkinManager sm = FindObjectOfType<SkinManager>(); if (sm != null) sm.RestaurarSkinTienda(); }
         Debug.Log($"[PvP] Antes — cpu.enabled={cpu?.enabled} | cpuControl.enabled={cpuControl?.enabled} | j2.enabled={controlJugador2?.enabled}");
 
         // ════════════════════════════════════════════════════════

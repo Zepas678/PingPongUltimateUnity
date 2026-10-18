@@ -385,6 +385,22 @@ public class SkinManager : MonoBehaviour
         UIManager.Instance?.OnClickVolverAlMenu();
     }
 
+    /// <summary>
+    /// Restaura la skin del jugador a la equipada en tienda/perfil (PlayerPrefs).
+    /// Las skins de torneo solo valen durante el torneo: al entrar a VS CPU,
+    /// 2 Jugadores o Práctica, llamar esto para quitar la skin de torneo.
+    /// Devuelve true si aplicó la skin guardada.
+    /// </summary>
+    public bool RestaurarSkinTienda()
+    {
+        Renderer destino = rendererRaquetaJugador;
+        if (destino == null && GameManager.Instance != null
+            && GameManager.Instance.golpeRaquetaJugador != null)
+            destino = GameManager.Instance.golpeRaquetaJugador.GetComponent<Renderer>();
+        if (destino == null) return false;
+        return AplicarSkinEquipadaConLog(destino);
+    }
+
     // -------------------------------------------------------
     public Material GetMaterialSeleccionado() => materialSeleccionado;
 

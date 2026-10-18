@@ -82,10 +82,11 @@ public class MainMenuBackgroundManager : MonoBehaviour
         }
     }
 
-    /// <summary>Entrada al demo sin depender de UIManager (fallback).</summary>
-    void EntrarAlMenuPrincipalSinUI()
+    /// <summary>Activa el fondo demo: mapa aleatorio, MenuCamera y CPU vs CPU.</summary>
+    public void EntrarAlMenuPrincipalSinUI()
     {
         ResolverCamaras();
+        LimpiarModeloJefeEnMenu();
         GameManager gm = GM();
         if (gm == null) return;
         GuardarEstadoDemo(gm);
@@ -122,16 +123,20 @@ public class MainMenuBackgroundManager : MonoBehaviour
     void DesactivarJefesYHabilidades()
     {
         jefesApagados.Clear();
+        // 0) Cancelar Invokes pendientes de este manager (saque demo, etc.).
+        try { CancelInvoke(); } catch (System.Exception) { }
         bossManagerRef = BossManager.Instance != null ? BossManager.Instance : FindObjectOfType<BossManager>();
         if (bossManagerRef != null)
         {
             bossManagerEstabaActivo = bossManagerRef.isActiveAndEnabled;
-            // Apagar el combate activo del jefe si lo hay.
+            // Apagar el combate activo del jefe si lo hay + cancelar Invokes/corutinas.
             if (bossManagerRef.JefeActivo != null)
             {
                 try { bossManagerRef.JefeActivo.FinalizarCombate(); } catch (System.Exception) { }
                 bossManagerRef.JefeActivo = null;
             }
+            try { bossManagerRef.CancelInvoke(); } catch (System.Exception) { }
+            try { bossManagerRef.StopAllCoroutines(); } catch (System.Exception) { }
             bossManagerRef.enabled = false;
         }
         // Apagar controladores de jefes por tipo (incluye inactivos en escena).
@@ -159,6 +164,9 @@ public class MainMenuBackgroundManager : MonoBehaviour
             if (c == null || !c.gameObject.scene.isLoaded) continue;
             // No apagar el piloto del demo ni este manager.
             if (c is DemoCpuPiloto || c is MainMenuBackgroundManager) continue;
+            // Cancelar Invokes/corutinas del jefe antes de apagarlo.
+            try { c.CancelInvoke(); } catch (System.Exception) { }
+            try { c.StopAllCoroutines(); } catch (System.Exception) { }
             if (c.enabled)
             {
                 c.enabled = false;
@@ -184,6 +192,8 @@ public class MainMenuBackgroundManager : MonoBehaviour
                 if (m == null || m is MainMenuBackgroundManager || m is DemoCpuPiloto) continue;
                 // No apagar el GameManager/UIManager/MapManager/Economy.
                 if (m is GameManager || m is UIManager || m is MapManager || m is EconomyManager) continue;
+                try { m.CancelInvoke(); } catch (System.Exception) { }
+                try { m.StopAllCoroutines(); } catch (System.Exception) { }
                 if (m.enabled && !jefesApagados.Contains(m))
                 {
                     m.enabled = false;
@@ -225,8 +235,8 @@ public class MainMenuBackgroundManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Reactiva BossManager y sus componentes (abrir submenú/pantalla de jefes).
-    /// Restaura la lista de apagados que pertenezcan a jefes y fuerza enabled.
+    /// Reactiva BossManager y sus componentes + ciclo de vida de entrada
+    /// (abrir submenú/pantalla de jefes). Restaura apagados de jefes y fuerza enabled.
     /// </summary>
     public void ReactivarBossManager()
     {
@@ -246,11 +256,14 @@ public class MainMenuBackgroundManager : MonoBehaviour
         bm.enabled = true;
         bossManagerRef = bm;
         bossManagerEstabaActivo = true;
+        // Ciclo de vida de entrada: hijos + ficha visible.
+        bm.EntrarModoHistoriaJefes();
     }
 
     /// <summary>
     /// Llamar al abrir el panel/submenú de jefes: reactiva BossManager para que
     /// el botón COMBATIR funcione aunque el fondo demo lo haya apagado.
+    /// BossCard se enciende AQUÍ AL FINAL, tras reactivar (nadie la apaga después).
     /// Conectar al botón que abre el menú de jefes.
     /// </summary>
     public void AbrirPanelJefes()
@@ -258,6 +271,16 @@ public class MainMenuBackgroundManager : MonoBehaviour
         // Salir de la pausa de fondo si la hay (el menú de jefes es interactivo).
         ReanudarFondoSubmenu();
         ReactivarBossManager();
+        // BossCard al final: reactivar + repintar ficha como último paso.
+        BossManager bm = BossManager.Instance != null ? BossManager.Instance : FindObjectOfType<BossManager>();
+        if (bm != null)
+        {
+            if (bm.bossInfoCard != null) bm.bossInfoCard.SetActive(true);
+            if (bm.panelInfoJefe != null) bm.panelInfoJefe.SetActive(true);
+            bm.ActualizarUI();
+            // Refuerzo post-ActualizarUI: BossCard lo ÚLTIMO.
+            if (bm.bossInfoCard != null) bm.bossInfoCard.SetActive(true);
+        }
     }
 
     void ResolverCamaras()
@@ -287,10 +310,15 @@ public class MainMenuBackgroundManager : MonoBehaviour
 
     GameManager GM() => GameManager.Instance;
 
-    /// <summary>Activa el fondo demo: mapa aleatorio, MenuCamera y CPU vs CPU.</summary>
+    /// <summary>
+    /// Entrada centralizada al menú principal: fondo demo + limpieza de jefes.
+    /// Destruye/desactiva cualquier modelo de jefe instanciado en escena,
+    /// reactiva el fondo y deja la UI lista. Llamar desde UIManager al volver.
+    /// </summary>
     public void EntrarAlMenuPrincipal()
     {
         ResolverCamaras();
+        LimpiarModeloJefeEnMenu();
         GameManager gm = GM();
         if (gm == null) return;
         GuardarEstadoDemo(gm);
@@ -313,18 +341,37 @@ public class MainMenuBackgroundManager : MonoBehaviour
         submenusAbiertos = 0;
     }
 
-    /// <summary>Sale del demo (PLAY): vuelve a GameplayCamera y restaura controles.</summary>
+    /// <summary>
+    /// Sale del demo hacia CUALQUIER partida real: apaga SIEMPRE la MenuCamera,
+    /// activa la Main Camera (Gameplay) y reactiva BossManager/controles de inmediato.
+    /// Llamar al inicio de IniciarPartida / PvP / torneo / jefes / práctica.
+    /// </summary>
     public void SalirDelDemoHaciaPartida()
     {
         GameManager gm = GM();
         if (corrutinaSaqueDemo != null) { StopCoroutine(corrutinaSaqueDemo); corrutinaSaqueDemo = null; }
         if (pausarEnSubmenus) Time.timeScale = timeScalePrevio > 0f ? timeScalePrevio : 1f;
+        else if (Mathf.Approximately(Time.timeScale, 0f)) Time.timeScale = 1f;
         submenusAbiertos = 0;
         DemoActivo = false;
-        // Restaurar jefes/habilidades para la partida real.
+        // Restaurar jefes/habilidades para la partida real (incluye BossManager).
         RestaurarJefesYHabilidades();
+        // Cámaras: menú OFF siempre, gameplay ON siempre (aunque ya lo estuvieran).
         if (menuCamera != null) menuCamera.enabled = false;
-        if (gameplayCamera == null && Camera.main != null) gameplayCamera = Camera.main;
+        if (gameplayCamera == null)
+            gameplayCamera = Camera.main != null ? Camera.main : FindObjectOfType<Camera>();
+        Camera[] todas = FindObjectsOfType<Camera>(true);
+        if (todas != null)
+        {
+            foreach (Camera c in todas)
+            {
+                if (c == null || c == gameplayCamera || c == menuCamera) continue;
+                // Apagar otras cámaras de preview (tienda) para que no pisen la gameplay.
+                if (!c.gameObject.scene.isLoaded) continue;
+                string n = c.gameObject.name.ToLowerInvariant();
+                if (n.Contains("preview") || n.Contains("menu")) c.enabled = false;
+            }
+        }
         if (gameplayCamera != null) gameplayCamera.enabled = true;
         if (gm != null) RestaurarControles(gm);
     }
@@ -373,6 +420,69 @@ public class MainMenuBackgroundManager : MonoBehaviour
         if (gm.cpu != null) gm.cpu.enabled = habiaCpuEnabled;
         if (gm.cpuControl != null) gm.cpuControl.enabled = habiaCpuControlEnabled;
         if (gm.controlJugador2 != null) gm.controlJugador2.enabled = habiaP2Enabled;
+    }
+
+    /// <summary>
+    /// Limpieza del modelo del jefe al volver al menú: destruye clones
+    /// "JefeVisual_CPU"/"ZeusVisual_CPU" en raquetas y desactiva controladores
+    /// de jefes sueltos en escena. El BossManager conserva sus datos/prefabs.
+    /// </summary>
+    public void LimpiarModeloJefeEnMenu()
+    {
+        // 1) Hijos visuales en raquetas (CPU y jugador por seguridad).
+        GameManager gm = GM();
+        Transform[] raices = gm != null
+            ? new Transform[]
+            {
+                gm.golpeRaquetaCPU != null ? gm.golpeRaquetaCPU.transform : null,
+                gm.golpeRaquetaJugador != null ? gm.golpeRaquetaJugador.transform : null
+            }
+            : new Transform[0];
+        string[] nombresVisuales = { "JefeVisual_CPU", "ZeusVisual_CPU" };
+        foreach (Transform raiz in raices)
+        {
+            if (raiz == null) continue;
+            foreach (string n in nombresVisuales)
+            {
+                Transform hijo = raiz.Find(n);
+                if (hijo != null)
+                {
+                    try { Destroy(hijo.gameObject); } catch (System.Exception) { }
+                }
+            }
+        }
+        // Restaurar renderers base de la raqueta CPU si quedaron ocultos.
+        if (gm != null && gm.golpeRaquetaCPU != null)
+        {
+            Renderer[] rs = gm.golpeRaquetaCPU.GetComponentsInChildren<Renderer>(true);
+            if (rs != null)
+            {
+                foreach (Renderer r in rs)
+                {
+                    if (r != null && !r.enabled) r.enabled = true;
+                }
+            }
+            gm.golpeRaquetaCPU.ocultarRendererBaseAlRegenerar = false;
+        }
+        // 2) Controladores de jefes sueltos en escena: desactivar (no destruir prefabs).
+        ApagarControladoresJefeSueltos();
+    }
+
+    void ApagarControladoresJefeSueltos()
+    {
+        BossController[] todos;
+        try { todos = Resources.FindObjectsOfTypeAll<BossController>(); }
+        catch (System.Exception) { return; }
+        if (todos == null) return;
+        foreach (BossController c in todos)
+        {
+            if (c == null || !c.gameObject.scene.isLoaded) continue;
+            // No tocar el BossManager ni el piloto del demo.
+            if (c is BossManager || c is DemoCpuPiloto) continue;
+            // Si es un clon de combate (no el prefab original de datos), desactivar.
+            if (c.gameObject.activeSelf)
+                c.gameObject.SetActive(false);
+        }
     }
 
     /// <summary>Al abrir Shop/Options/Help: congela la simulación de fondo.</summary>

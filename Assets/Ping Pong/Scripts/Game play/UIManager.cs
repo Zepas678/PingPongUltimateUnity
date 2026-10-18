@@ -120,6 +120,40 @@ public class UIManager : MonoBehaviour
         MostrarPanel(panelSkins);
     }
 
+    /// <summary>
+    /// Abre el menú de jefes (reactiva BossManager apagado por el demo) y pinta
+    /// la ficha completa del jefe actual (nombre/título/dificultad/descripción).
+    /// BossCard se enciende como ÚLTIMO paso (nadie la apaga después).
+    /// </summary>
+    public void OnClickBosses()
+    {
+        BossManager bm0 = BossManager.Instance != null ? BossManager.Instance : FindObjectOfType<BossManager>();
+        if (bm0 != null) bm0.EntrarModoHistoriaJefes();
+        if (MainMenuBackgroundManager.Instance != null)
+            MainMenuBackgroundManager.Instance.AbrirPanelJefes();
+        MostrarPanel(panelBosses);
+        BossManager bm = BossManager.Instance != null ? BossManager.Instance : FindObjectOfType<BossManager>();
+        if (bm != null)
+        {
+            bm.ActualizarUI();
+            // BossCard lo ÚLTIMO: tras ActualizarUI nadie debe apagarla.
+            if (bm.bossInfoCard != null) bm.bossInfoCard.SetActive(true);
+        }
+        else Debug.LogWarning("[UIManager] OnClickBosses: no hay BossManager en escena para pintar la ficha.");
+    }
+
+    /// <summary>
+    /// Botón VOLVER dentro del menú de jefes: cierra panelBosses, apaga BossManager
+    /// (ciclo de vida) y vuelve al menú principal.
+    /// </summary>
+    public void OnClickVolverDesdeBosses()
+    {
+        BossManager bm = BossManager.Instance != null ? BossManager.Instance : FindObjectOfType<BossManager>();
+        if (bm != null) bm.SalirModoHistoriaJefes();
+        if (panelBosses != null) panelBosses.SetActive(false);
+        MostrarPanel(panelMenuPrincipal);
+    }
+
     public void OnClickSkins()
     {
         MostrarPanel(panelSkins);
@@ -246,6 +280,9 @@ public class UIManager : MonoBehaviour
     public void OnClickVolverAlMenu()
     {
         GameManager.Instance?.DetenerVolcanes();
+        // Al regresar al menú desde un combate: ciclo de vida OFF de jefes.
+        BossManager bm = BossManager.Instance != null ? BossManager.Instance : FindObjectOfType<BossManager>();
+        if (bm != null) bm.SalirModoHistoriaJefes();
         GameManager.Instance?.VolverAlMenu();
 
         var practiceUI = FindObjectOfType<PracticeUI>();

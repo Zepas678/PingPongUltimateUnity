@@ -51,6 +51,9 @@ public class MapManager : MonoBehaviour
     /// </summary>
     public const int INDICE_MAPA_INFINITO = 2;
 
+    [Tooltip("Índice del mapa de la habitación de práctica (nunca fondo aleatorio).")]
+    public int indiceMapaPractica = 7;
+
     /// <summary>
     /// Nombre del escenario FIJO del jefe Mirage ("habitacion_Infinito Variant").
     /// SeleccionarMapaBoss() lo fuerza cuando el jefe Mirage no trae un mapa propio
@@ -1027,6 +1030,24 @@ public class MapManager : MonoBehaviour
             if (texto != null) texto.text = "EQUIP";
             if (botonConfirmarMapa != null) botonConfirmarMapa.interactable = true;
         }
+    }
+
+    /// <summary>
+    /// Instancia el mapa de práctica LIMPIO: destruye el anterior (usa el
+    /// LimpiarMapaActual original, línea ~2142) y coloca el nuevo con rotación
+    /// Quaternion.identity (0,0,0), nunca -90 en X.
+    /// Devuelve el GameObject instanciado (o null).
+    /// </summary>
+    public GameObject SeleccionarMapaPracticaLimpio()
+    {
+        LimpiarMapaActual();
+        ConfigMapa config = ConfigPorIndice(indiceMapaPractica);
+        if (config == null) config = mapaPractica;
+        if (config == null || config.prefab == null) return MapaActual;
+        InstanciarMapa(config);
+        if (MapaActual != null)
+            MapaActual.transform.rotation = Quaternion.identity;
+        return MapaActual;
     }
 
     /// <summary>
@@ -2201,11 +2222,27 @@ public class MapManager : MonoBehaviour
 
     void AplicarSkybox(ConfigMapa config)
     {
+        AplicarSkyboxMapa(config);
+    }
+
+    /// <summary>
+    /// Aplica el skybox del config al RenderSettings de inmediato (fondo del cielo).
+    /// Si config.skybox es null conserva el actual. Llamar en cada cambio de mapa
+    /// (CambiarMapa / InstanciarMapa / MostrarMapaAleatorioDeFondo).
+    /// </summary>
+    public static void AplicarSkyboxMapa(ConfigMapa config)
+    {
         if (config == null || config.skybox == null) return;
 
         // Crear instancia del material para poder modificarlo en runtime.
         RenderSettings.skybox = new Material(config.skybox);
-        anguloSkybox = 0f; // resetear rotación al cambiar mapa
+        try { DynamicGI.UpdateEnvironment(); } catch (System.Exception) { }
+    }
+
+    /// <summary>Resetea la rotación animada del skybox al cambiar de mapa.</summary>
+    public void ResetearRotacionSkybox()
+    {
+        anguloSkybox = 0f;
     }
 
     /// <summary>
@@ -2412,6 +2449,7 @@ public class MapManager : MonoBehaviour
     /// NO cambia mapaSeleccionado/indiceCarrusel: la elección del jugador queda intacta.
     /// Útil para MainMenuBackgroundManager (fondo dinámico CPU vs CPU).
     /// Devuelve el índice mostrado (0-7) o mapaSeleccionado si no hay candidato.
+    /// Aplica skybox + DynamicGI del mapa mostrado.
     /// </summary>
     public int MostrarMapaAleatorioDeFondo()
     {
@@ -2427,6 +2465,8 @@ public class MapManager : MonoBehaviour
         ConfigMapa config = ConfigPorIndice(indice);
         if (config == null) return mapaSeleccionado;
         InstanciarMapa(config);
+        AplicarSkyboxMapa(config);
+        ResetearRotacionSkybox();
         return indice;
     }
 

@@ -37,8 +37,26 @@ public class PracticeModeManager : MonoBehaviour
     {
         IsPracticeMode = true;
         // Salir del fondo demo: GameplayCamera + controles reales de práctica.
+        // (Si ya se salió antes, la llamada es inocua.)
         if (MainMenuBackgroundManager.Instance != null)
             MainMenuBackgroundManager.Instance.SalirDelDemoHaciaPartida();
+        else if (Mathf.Approximately(Time.timeScale, 0f))
+            Time.timeScale = 1f;
+        // Práctica: skin de tienda/perfil, nunca la de torneo.
+        if (SkinManager.Instance != null) SkinManager.Instance.RestaurarSkinTienda();
+        else { SkinManager sm = FindObjectOfType<SkinManager>(); if (sm != null) sm.RestaurarSkinTienda(); }
+
+        // Limpiar el mapa anterior ANTES de instanciar el de práctica:
+        // evita habitaciones verdes acumuladas/duplicadas en la escena.
+        if (MapManager.Instance != null)
+        {
+            MapManager.Instance.LimpiarMapaActual();
+            // Instanciar el mapa de práctica con rotación neutra (0,0,0):
+            // nunca volteado en vertical (-90 en X).
+            GameObject mapaPractica = MapManager.Instance.SeleccionarMapaPracticaLimpio();
+            if (mapaPractica != null)
+                mapaPractica.transform.rotation = Quaternion.identity;
+        }
 
         // Aplicar gravedad inicial
         Physics.gravity = new Vector3(0f, -gravity, 0f);

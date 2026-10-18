@@ -25,6 +25,12 @@ public class BossManager : MonoBehaviour
     public TMP_Text textoTitulo;
     public TMP_Text textoDescripcion;
     public TMP_Text textoDificultad;
+    [Tooltip("Panel/contenedor de la ficha del jefe (nombre, título, dificultad, descripción). Se activa al abrir el menú de jefes.")]
+    public GameObject panelInfoJefe;
+    [Tooltip("Alias de panelInfoJefe (bossInfoCard). Si se asigna, se sincroniza con panelInfoJefe.")]
+    public GameObject bossInfoCard;
+    [Tooltip("Sprite por defecto para BossImage cuando el jefe no trae imagen. Si está vacío, la imagen se oculta limpiamente (solo el componente, no la ficha).")]
+    public Sprite spritePorDefectoJefe;
 
     [Header("UI - Navegación e indicadores")]
     public Button botonAnterior;
@@ -71,25 +77,78 @@ public class BossManager : MonoBehaviour
 
     void Awake()
     {
+        // TODO RASTREO-CLD: temporal. Quitar al estabilizar.
+        Debug.Log($"[RASTREO CLD] Método llamado: Awake | currentBossIndex actual: {currentBossIndex} | frame: {Time.frameCount}");
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
             return;
         }
         Instance = this;
+        // BossCard y TODA su descendencia activos desde el arranque,
+        // sin importar cómo estén guardados en la escena.
+        ActivarDescendenciaBossCard();
+    }
+
+    void OnEnable()
+    {
+        // TODO RASTREO-CLD: temporal. Quitar al estabilizar.
+        Debug.Log($"[RASTREO CLD] Método llamado: OnEnable | currentBossIndex actual: {currentBossIndex} | frame: {Time.frameCount}");
+        // Corrección radical: BossCard visible aunque algo la haya apagado.
+        if (bossInfoCard != null) bossInfoCard.SetActive(true);
+        if (panelInfoJefe != null) panelInfoJefe.SetActive(true);
+    }
+
+    void Update()
+    {
+        // TODO RASTREO-CLD: temporal, solo primeros 10 frames para no spamear.
+        if (Time.frameCount <= 10)
+            Debug.Log($"[RASTREO CLD] Método llamado: Update | currentBossIndex actual: {currentBossIndex} | frame: {Time.frameCount}");
     }
 
     // ──────────────────────────────────────────────
     void Start()
     {
+        // TODO RASTREO-CLD: temporal. Quitar al estabilizar.
+        Debug.Log($"[RASTREO CLD] Método llamado: Start | currentBossIndex actual: {currentBossIndex} | frame: {Time.frameCount}");
+        // Arranque: BossCard + TODA su descendencia activos (recursivo),
+        // y ActualizarUI() justo después del contenedor activo.
+        ActivarDescendenciaBossCard();
+        if (panelInfoJefe != null) panelInfoJefe.SetActive(true);
         // Normalizar la lista del Inspector (IDs/nombres) antes de aplicar progreso,
         // para que Colossus y Mirage no compartan Id = 2.
         ValidarListaJefes();
         // Aplicar el progreso guardado (PlayerPrefs) antes de pintar la UI,
         // para que Colossus/Mirage aparezcan desbloqueados si ya se venció al anterior.
         CargarProgresoJefes();
-        // Mostrar el jefe inicial
+        // Mostrar el jefe inicial (Zeus, índice 0) con re-pintado diferido:
+        // el primer ActualizarUI puede correr antes de que la jerarquía esté lista.
+        currentBossIndex = Mathf.Clamp(currentBossIndex, 0, Mathf.Max(0, (bosses != null ? bosses.Count : 1) - 1));
         ActualizarUI();
+        RepintarFichaDiferida();
+    }
+
+    /// <summary>
+    /// Re-pintado completo con 1 frame de retraso: garantiza que la jerarquía UI
+    /// esté instanciada y activa antes de asignar los textos de Zeus (índice 0).
+    /// Mantiene currentBossIndex (no lo resetea).
+    /// </summary>
+    public void RepintarFichaDiferida()
+    {
+        if (corrutinaRepintado != null) StopCoroutine(corrutinaRepintado);
+        corrutinaRepintado = StartCoroutine(RepintarFichaDiferidaCo());
+    }
+
+    Coroutine corrutinaRepintado;
+
+    System.Collections.IEnumerator RepintarFichaDiferidaCo()
+    {
+        yield return null; // 1 frame: jerarquía lista
+        if (bossInfoCard != null && !bossInfoCard.activeSelf) bossInfoCard.SetActive(true);
+        if (panelInfoJefe != null && !panelInfoJefe.activeSelf) panelInfoJefe.SetActive(true);
+        ActualizarUI();
+        if (bossInfoCard != null && !bossInfoCard.activeSelf) bossInfoCard.SetActive(true);
+        corrutinaRepintado = null;
     }
 
     /// <summary>
@@ -123,13 +182,30 @@ public class BossManager : MonoBehaviour
 
     // ──────────────────────────────────────────────
     /// <summary>
-    /// Actualiza toda la UI según el jefe seleccionado actualmente.
+    /// Actualiza la UI con la información del jefe seleccionado (FICHA COMPLETA).
+    /// Activa panelInfoJefe/bossInfoCard y pinta: nombre (ZEUS), título
+    /// (Señor del Trueno), dificultad (texto + barras), descripción de la
+    /// habilidad, retrato (oculto si no hay sprite) y overlay de bloqueo.
+    /// Llamar al abrir el menú, al cambiar con flechas y al inicializar.
+    /// Alias: ActualizarUIJefe() / MostrarInformacionJefe() / UpdateBossUI().
     /// </summary>
     public void ActualizarUI()
     {
+        // 0) BossCard SIEMPRE activa en el menú de jefes (contenedor BossName,
+        //    BossSubtitle, BossDescription y BossImage). Forzar activación directa
+        //    + CanvasGroup visible (alpha 1). Nada la apaga después.
+        if (bossInfoCard != null)
+        {
+            bossInfoCard.SetActive(true);
+            CanvasGroup cg = bossInfoCard.GetComponent<CanvasGroup>();
+            if (cg != null) { cg.alpha = 1f; cg.blocksRaycasts = true; }
+        }
+        ActivarPanelInfoJefe(true);
+        ResolverReferenciasFichaJefe();
+        // 3) Seguridad de lista: vacía o elemento 0 NULL.
         if (bosses == null || bosses.Count == 0)
         {
-            Debug.LogWarning("[BossManager] No hay jefes configurados en la lista.");
+            Debug.LogError("[BossManager] El jefe en la posición actual es NULL o no tiene BossData asignado (lista vacía).");
             return;
         }
 
@@ -137,14 +213,90 @@ public class BossManager : MonoBehaviour
         currentBossIndex = Mathf.Clamp(currentBossIndex, 0, bosses.Count - 1);
 
         BossData jefe = bosses[currentBossIndex];
-        if (jefe == null) return;
+        // TODO DEBUG-BOSS: diagnóstico pedido. Quitar al estabilizar.
+        Debug.Log($"[DIAGNOSTICO BOSS] Indice: {currentBossIndex} | Nombre: {(jefe != null ? jefe.nombre : "NULO")} | Descripcion: {(jefe != null ? (string.IsNullOrEmpty(jefe.descripcion) ? "(VACIA)" : jefe.descripcion) : "NULO")} | TextoNombreAsignado: {textoNombre != null}");
+        // Diagnóstico de jerarquía: ¿algún PADRE apagado aunque BossCard esté ON?
+        if (bossInfoCard != null)
+        {
+            Transform p = bossInfoCard.transform.parent;
+            string cadena = bossInfoCard.name + "=" + bossInfoCard.activeSelf;
+            while (p != null) { cadena += " <- " + p.name + "=" + p.gameObject.activeSelf; p = p.parent; }
+            Debug.Log("[DIAGNOSTICO BOSS] Jerarquía BossCard: " + cadena + " | visibleEnJerarquía=" + bossInfoCard.activeInHierarchy);
+        }
+        if (textoNombre != null)
+            Debug.Log("[DIAGNOSTICO BOSS] textoNombre GO=" + textoNombre.gameObject.name + " activeSelf=" + textoNombre.gameObject.activeSelf + " activeInHierarchy=" + textoNombre.gameObject.activeInHierarchy + " enabled=" + textoNombre.enabled);
+        if (jefe == null)
+        {
+            Debug.LogError("[BossManager] El jefe en la posición actual es NULL o no tiene BossData asignado (índice " + currentBossIndex + ").");
+            return;
+        }
 
-        // 1. Mostrar información del jefe
-        if (textoNombre != null) textoNombre.text = jefe.nombre;
-        if (textoTitulo != null) textoTitulo.text = jefe.titulo;
-        if (textoDescripcion != null) textoDescripcion.text = jefe.descripcion;
-        if (textoDificultad != null) textoDificultad.text = "Dificultad: " + jefe.dificultad;
-        if (imagenJefe != null) imagenJefe.sprite = jefe.imagen;
+        // 1. TEXTOS PRIMERO: totalmente independientes de la imagen.
+        //    Se pintan siempre, haya o no sprite de jefe.
+        if (textoNombre != null)
+        {
+            textoNombre.gameObject.SetActive(true);
+            textoNombre.enabled = true;
+            textoNombre.text = jefe.nombre;
+        }
+        if (textoTitulo != null)
+        {
+            textoTitulo.gameObject.SetActive(true);
+            textoTitulo.enabled = true;
+            textoTitulo.text = jefe.titulo;
+        }
+        if (textoDescripcion != null)
+        {
+            textoDescripcion.gameObject.SetActive(true);
+            textoDescripcion.enabled = true;
+            textoDescripcion.text = jefe.descripcion;
+        }
+        // Dificultad: texto + barras (el texto genérico se oculta si hay barras).
+        ActualizarDificultadFicha(jefe);
+        // 2. IMAGEN AL FINAL: simple, sin try-catch ni SetNativeSize.
+        //    Si no hay sprite (ni por defecto), solo se apaga el componente.
+        if (imagenJefe != null)
+        {
+            if (jefe.imagen != null)
+            {
+                if (!imagenJefe.gameObject.activeSelf)
+                    imagenJefe.gameObject.SetActive(true);
+                imagenJefe.sprite = jefe.imagen;
+                imagenJefe.enabled = true;
+            }
+            else if (spritePorDefectoJefe != null)
+            {
+                if (!imagenJefe.gameObject.activeSelf)
+                    imagenJefe.gameObject.SetActive(true);
+                imagenJefe.sprite = spritePorDefectoJefe;
+                imagenJefe.enabled = true;
+            }
+            else
+            {
+                imagenJefe.enabled = false;
+            }
+        }
+        // 2b) Reforzar: BossCard padre activo + CanvasGroup visible (lo ÚLTIMO).
+        if (bossInfoCard != null)
+        {
+            if (!bossInfoCard.activeSelf) bossInfoCard.SetActive(true);
+            CanvasGroup cg2 = bossInfoCard.GetComponent<CanvasGroup>();
+            if (cg2 != null) { cg2.alpha = 1f; cg2.blocksRaycasts = true; }
+            // La propia BossCard tiene componente Image SIN sprite (Source Image = None):
+            // ese rectángulo gris/blanco TAPA los textos (BossName/BossSubtitle/etc).
+            // Apagar SOLO ese Image de fondo, nunca el GameObject.
+            UnityEngine.UI.Image fondo = bossInfoCard.GetComponent<UnityEngine.UI.Image>();
+            if (fondo != null && fondo.sprite == null) fondo.enabled = false;
+        }
+
+        // 2c) CIERRE DEFINITIVO: re-forzar .enabled de TODOS los TMP de la ficha.
+        // El log muestra activeSelf=True + activeInHierarchy=True + enabled=False:
+        // algo (layout/animación/otro script) apaga el COMPONENTE tras pintar.
+        // Esto va LO ÚLTIMO de ActualizarUI para ganarle a ese apagado.
+        if (textoNombre != null) textoNombre.enabled = true;
+        if (textoTitulo != null) textoTitulo.enabled = true;
+        if (textoDescripcion != null) textoDescripcion.enabled = true;
+        if (textoDificultad != null && textoDificultad.gameObject.activeSelf) textoDificultad.enabled = true;
 
         // 2. Actualizar el color de tema
         ActualizarColorTema(jefe);
@@ -160,6 +312,248 @@ public class BossManager : MonoBehaviour
 
         // 6. Actualizar botón de combate
         ActualizarBotonCombatir(jefe);
+        // 7) Cierre anti-bloqueo: si el jefe está disponible, la ficha queda visible.
+        //    ActualizarEstadoBloqueo/ActualizarBotonCombatir NUNCA apagan BossCard.
+        if (jefe.desbloqueado && bossInfoCard != null && !bossInfoCard.activeSelf)
+            bossInfoCard.SetActive(true);
+    }
+
+    /// <summary>Alias de ActualizarUI() para abrir/cambiar de jefe.</summary>
+    public void ActualizarUIJefe() => ActualizarUI();
+
+    /// <summary>
+    /// Ciclo de vida: entrar al Modo Historia / Pantalla de Jefes.
+    /// Activa BossManager + GameObjects hijos asociados (ficha, botones).
+    /// NO toca .enabled de TMP/Image: ActualizarUI() los enciende.
+    /// Llamar desde UIManager.OnClickBosses / AbrirPanelJefes.
+    /// Además inicia el forzado continuo de BossCard mientras el panel siga abierto.
+    /// </summary>
+    public void EntrarModoHistoriaJefes()
+    {
+        // TODO RASTREO-CLD: temporal. Quitar al estabilizar.
+        Debug.Log($"[RASTREO CLD] Método llamado: EntrarModoHistoriaJefes | currentBossIndex actual: {currentBossIndex} | frame: {Time.frameCount}");
+        enabled = true;
+        gameObject.SetActive(true);
+        NeutralizarAnimatorFicha();
+        // Activación recursiva de BossCard (ella + descendencia) ANTES de pintar.
+        ActivarDescendenciaBossCard();
+        // Solo GameObjects (nunca componentes): encender hijos directos.
+        Transform t = transform;
+        for (int i = 0; i < t.childCount; i++)
+        {
+            GameObject hijo = t.GetChild(i).gameObject;
+            if (!hijo.activeSelf) hijo.SetActive(true);
+        }
+        if (panelInfoJefe != null) panelInfoJefe.SetActive(true);
+        // Sin inicialización sorda: el índice se fija en la corrutina de doble
+        // refresco (0 si no hay combate activo, actual si se viene de uno).
+        if (corrutinaDobleRefresco != null) StopCoroutine(corrutinaDobleRefresco);
+        corrutinaDobleRefresco = StartCoroutine(DobleRefrescoBossCard());
+        IniciarForzadoBossCard();
+    }
+
+    Coroutine corrutinaDobleRefresco;
+
+    /// <summary>
+    /// Doble refresco de BossCard al abrir el modo historia:
+    /// - Frame 0: activar bossInfoCard y TODOS sus hijos (sin tocar índices).
+    /// - Frame 1 (yield return null): currentBossIndex = 0 si no hay combate
+    ///   activo (o clamp del actual si se viene de uno) + ActualizarUI() forzado
+    ///   para cargar textos y sprites de Zeus.
+    /// </summary>
+    System.Collections.IEnumerator DobleRefrescoBossCard()
+    {
+        // Frame 0: contenedor + hijos activos.
+        if (bossInfoCard != null)
+        {
+            bossInfoCard.SetActive(true);
+            foreach (Transform child in bossInfoCard.transform)
+                child.gameObject.SetActive(true);
+        }
+        yield return null; // Frame 1: jerarquía lista
+        if (JefeActivo == null)
+            currentBossIndex = 0;
+        else if (bosses != null && bosses.Count > 0)
+            currentBossIndex = Mathf.Clamp(currentBossIndex, 0, bosses.Count - 1);
+        ActualizarUI();
+        if (bossInfoCard != null && !bossInfoCard.activeSelf) bossInfoCard.SetActive(true);
+        corrutinaDobleRefresco = null;
+    }
+
+    /// <summary>
+    /// Activa BossCard y TODA su descendencia (hijos, nietos...) por código,
+    /// sin importar cómo estén guardados en la escena (sin chulito).
+    /// Solo toca GameObjects (SetActive), nunca componentes.
+    /// </summary>
+    void ActivarDescendenciaBossCard()
+    {
+        if (bossInfoCard == null) return;
+        if (!bossInfoCard.activeSelf) bossInfoCard.SetActive(true);
+        Transform[] todos = bossInfoCard.GetComponentsInChildren<Transform>(true);
+        if (todos == null) return;
+        foreach (Transform t in todos)
+        {
+            if (t != null && !t.gameObject.activeSelf)
+                t.gameObject.SetActive(true);
+        }
+    }
+
+    Coroutine corrutinaForzadoBossCard;
+
+    /// <summary>
+    /// Guardián anti-Animator: si Panel_Jefes/BossCard tienen Animator que apaga
+    /// la ficha, se desactiva el Animator y se deja la ficha visible.
+    /// Ejecutar al abrir el menú de jefes.
+    /// </summary>
+    void NeutralizarAnimatorFicha()
+    {
+        Transform raiz = bossInfoCard != null ? bossInfoCard.transform
+            : (panelInfoJefe != null ? panelInfoJefe.transform : transform);
+        if (raiz == null) return;
+        Animator[] anims = raiz.GetComponentsInChildren<Animator>(true);
+        if (anims == null) return;
+        foreach (Animator a in anims)
+        {
+            if (a == null) continue;
+            a.enabled = false;
+            Debug.LogWarning("[BossManager] Animator desactivado en '" + a.gameObject.name + "' para que no apague BossCard.");
+        }
+    }
+
+    /// <summary>
+    /// Fuerza BossCard visible durante ~0.5s (y mientras Panel_Jefes siga abierto):
+    /// si algo la apaga (GameObject o COMPONENTES TMP/Image), se reenciende.
+    /// </summary>
+    System.Collections.IEnumerator ForzarVisibilidadBossCard()
+    {
+        float fin = Time.unscaledTime + 0.5f;
+        while (true)
+        {
+            if (bossInfoCard != null && !bossInfoCard.activeSelf)
+                bossInfoCard.SetActive(true);
+            // Re-forzar componentes TMP apagados (el log muestra enabled=False).
+            if (textoNombre != null && !textoNombre.enabled) textoNombre.enabled = true;
+            if (textoTitulo != null && !textoTitulo.enabled) textoTitulo.enabled = true;
+            if (textoDescripcion != null && !textoDescripcion.enabled) textoDescripcion.enabled = true;
+            // Salir tras 0.5s salvo que el panel de jefes siga abierto (forzado continuo).
+            UIManager ui = UIManager.Instance;
+            bool panelAbierto = ui != null && ui.panelBosses != null && ui.panelBosses.activeInHierarchy;
+            if (Time.unscaledTime >= fin && !panelAbierto) break;
+            if (Time.unscaledTime >= fin + 5f) break; // seguridad: máximo 5.5s
+            yield return null;
+        }
+        corrutinaForzadoBossCard = null;
+    }
+
+    void IniciarForzadoBossCard()
+    {
+        if (corrutinaForzadoBossCard != null) StopCoroutine(corrutinaForzadoBossCard);
+        corrutinaForzadoBossCard = StartCoroutine(ForzarVisibilidadBossCard());
+    }
+
+    /// <summary>
+    /// Ciclo de vida: salir del Modo Historia (VOLVER o volver al menú desde combate).
+    /// Desactiva BossManager y cancela Invokes/corutinas para no afectar otros modos.
+    /// El GameObject se deja activo para no romper referencias; solo el script OFF.
+    /// </summary>
+    public void SalirModoHistoriaJefes()
+    {
+        try { CancelInvoke(); } catch (System.Exception) { }
+        try { StopAllCoroutines(); } catch (System.Exception) { }
+        if (JefeActivo != null)
+        {
+            try { JefeActivo.FinalizarCombate(); } catch (System.Exception) { }
+            JefeActivo = null;
+        }
+        enabled = false;
+    }
+    /// <summary>Alias de ActualizarUI() para abrir/cambiar de jefe.</summary>
+    public void MostrarInformacionJefe() => ActualizarUI();
+    /// <summary>Alias de ActualizarUI() para abrir/cambiar de jefe.</summary>
+    public void UpdateBossUI() => ActualizarUI();
+
+    /// <summary>
+    /// Activa/oculta el contenedor de la ficha (panelInfoJefe/bossInfoCard).
+    /// Sincroniza ambos alias si están asignados.
+    /// </summary>
+    public void ActivarPanelInfoJefe(bool activo)
+    {
+        if (panelInfoJefe != null && panelInfoJefe.activeSelf != activo)
+            panelInfoJefe.SetActive(activo);
+        if (bossInfoCard != null && bossInfoCard.activeSelf != activo)
+            bossInfoCard.SetActive(activo);
+    }
+
+    /// <summary>
+    /// Auto-resuelve referencias vacías de la ficha buscando en hijos del panel:
+    /// textos por nombre (Nombre/Titulo/Descripcion/Dificultad) e Image de retrato.
+    /// No pisa referencias ya asignadas en el Inspector.
+    /// </summary>
+    void ResolverReferenciasFichaJefe()
+    {
+        GameObject raiz = panelInfoJefe != null ? panelInfoJefe
+            : (bossInfoCard != null ? bossInfoCard : gameObject);
+        if (raiz == null) return;
+        if (textoNombre == null) textoNombre = BuscarTextoEn(raiz, "Nombre", "BossNombre", "NombreJefe");
+        if (textoTitulo == null) textoTitulo = BuscarTextoEn(raiz, "Titulo", "Subtitulo", "Apodo", "BossTitulo");
+        if (textoDescripcion == null) textoDescripcion = BuscarTextoEn(raiz, "Descripcion", "Habilidad", "BossDescripcion");
+        if (textoDificultad == null) textoDificultad = BuscarTextoEn(raiz, "Dificultad", "BossDificultad");
+        if (imagenJefe == null)
+        {
+            Image[] imgs = raiz.GetComponentsInChildren<Image>(true);
+            if (imgs != null)
+            {
+                foreach (Image img in imgs)
+                {
+                    if (img == null) continue;
+                    string n = img.gameObject.name.ToLowerInvariant();
+                    if (n.Contains("retrato") || n.Contains("portrait") || n.Contains("jefe") || n.Contains("boss"))
+                    { imagenJefe = img; break; }
+                }
+            }
+        }
+    }
+
+    TMP_Text BuscarTextoEn(GameObject raiz, params string[] nombres)
+    {
+        if (raiz == null || nombres == null) return null;
+        TMP_Text[] textos = raiz.GetComponentsInChildren<TMP_Text>(true);
+        if (textos == null) return null;
+        foreach (string nombre in nombres)
+        {
+            string clave = nombre.ToLowerInvariant();
+            foreach (TMP_Text t in textos)
+            {
+                if (t == null) continue;
+                if (t.gameObject.name.ToLowerInvariant().Contains(clave)) return t;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Pinta la dificultad en la ficha: barras (indicadores) + texto.
+    /// Si hay barras visibles, el texto genérico "Dificultad: X" se oculta para
+    /// no duplicar información sobre la mesa.
+    /// </summary>
+    void ActualizarDificultadFicha(BossData jefe)
+    {
+        bool hayBarras = indicadores != null && indicadores.Length > 0;
+        if (textoDificultad != null)
+        {
+            if (hayBarras)
+            {
+                // Con barras, ocultar el texto genérico "Dificultad: X".
+                if (textoDificultad.gameObject.activeSelf)
+                    textoDificultad.gameObject.SetActive(false);
+            }
+            else
+            {
+                textoDificultad.gameObject.SetActive(true);
+                textoDificultad.enabled = true;
+                textoDificultad.text = "Dificultad: " + jefe.dificultad;
+            }
+        }
     }
 
     // ──────────────────────────────────────────────
@@ -195,6 +589,13 @@ public class BossManager : MonoBehaviour
     public void StartBossBattle()
     {
         Debug.Log("[BossManager] 1. StartBossBattle()");
+        // Combate de jefe = partida real: GameplayCamera + BossManager/controles.
+        GameManager.AsegurarGameplayCamera();
+        // Ocultar el panel de jefes al iniciar el combate + salir del demo.
+        if (UIManager.Instance != null && UIManager.Instance.panelBosses != null)
+            UIManager.Instance.panelBosses.SetActive(false);
+        if (MainMenuBackgroundManager.Instance != null)
+            MainMenuBackgroundManager.Instance.SalirDelDemoHaciaPartida();
         if (bosses == null || bosses.Count == 0) return;
 
         BossData jefe = bosses[currentBossIndex];
@@ -299,10 +700,28 @@ public class BossManager : MonoBehaviour
         //    del jefe seleccionado usando su clase específica (o BossController genérico).
         if (EsJefeZeus(jefe))
         {
-            BossZeus bossZeus = FindObjectOfType<BossZeus>();
+            // Reactivar el gestor (el fondo demo lo apaga): sin esto Zeus no ataca.
+            BossManager.Instance.enabled = true;
+            this.enabled = true;
+            BossZeus bossZeus = FindObjectOfType<BossZeus>(true);
+            if (bossZeus == null)
+                bossZeus = GetComponentInChildren<BossZeus>(true);
             if (bossZeus != null)
             {
+                // El modelo/GO del jefe no debe quedar oculto por la limpieza.
+                if (!bossZeus.gameObject.activeSelf)
+                    bossZeus.gameObject.SetActive(true);
                 bossZeus.enabled = true;
+                try { bossZeus.CancelInvoke(); } catch (System.Exception) { }
+                try { bossZeus.StopAllCoroutines(); } catch (System.Exception) { }
+                // (Re)inicializar habilidades de Zeus.
+                try
+                {
+                    var mInit = bossZeus.GetType().GetMethod("IniciarHabilidades");
+                    if (mInit != null) mInit.Invoke(bossZeus, null);
+                    else bossZeus.SendMessage("OnEnable", SendMessageOptions.DontRequireReceiver);
+                }
+                catch (System.Exception) { }
                 bossZeus.IniciarCombate();
 
                 // Aplicar el modelo visual del jefe a la raqueta CPU (método genérico).
