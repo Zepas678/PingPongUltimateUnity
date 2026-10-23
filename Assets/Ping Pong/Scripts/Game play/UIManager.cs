@@ -1,8 +1,10 @@
 using UnityEngine;
 using TMPro;
 using System.Collections;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
-public class UIManager : MonoBehaviour
+public class UIManager : MonoBehaviour, IPointerEnterHandler
 {
     public static UIManager Instance { get; private set; }
 
@@ -20,6 +22,9 @@ public class UIManager : MonoBehaviour
 
     [Header("Panel Bosses")]
     public GameObject panelBosses;
+
+    [Header("Panel Help")]
+    public GameObject panelHelp;
 
     [Header("Marcador")]
     public TMP_Text scoreJugador;
@@ -41,7 +46,21 @@ public class UIManager : MonoBehaviour
     [Header("Nombre del jugador")]
     public string nombreJugador = "Jugador";
 
-    [Header("Widget Pollocoins (tienda / recompensas)")]
+    [Header("Audio UI")]
+    public AudioClip sonidoClick;
+    public AudioClip sonidoAbrirMenu;
+    public AudioClip sonidoCerrarMenu;
+    public AudioClip sonidoHover;
+    [Range(0f,1f)] public float volumenClick = 0.5f;
+    [Range(0f,1f)] public float volumenHover = 0.2f;
+    [Range(0f,1f)] public float volumenAbrir = 0.6f;
+    [Range(0f,1f)] public float volumenCerrar = 0.6f;
+    private AudioSource audioSourceUI;
+    [Header("Música Fondo")]
+    public AudioSource musicaSource;
+    public AudioClip[] cancionesMenu;
+    public float volumenMusica = 0.4f;
+    private int ultimaCancion = -1;
     [Tooltip("Si es true, el Widget_Pollocoins vive dentro de la tienda y UIManager lo muestra/oculta según panelTienda.")]
     public GameObject panelTienda;
     [Tooltip("Alias del widget (si se deja vacío se usa el de EconomyManager).")]
@@ -55,6 +74,18 @@ public class UIManager : MonoBehaviour
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
+        audioSourceUI = GetComponent<AudioSource>();
+        if (audioSourceUI == null) audioSourceUI = gameObject.AddComponent<AudioSource>();
+        if (musicaSource == null)
+        {
+            GameObject mgo = new GameObject("MusicaMenu");
+            mgo.transform.SetParent(transform);
+            musicaSource = mgo.AddComponent<AudioSource>();
+            musicaSource.loop = false;
+            musicaSource.playOnAwake = false;
+            musicaSource.volume = volumenMusica;
+        }
+        StartCoroutine(ReproducirMusicaAleatoria());
     }
 
     void Start()
@@ -62,6 +93,27 @@ public class UIManager : MonoBehaviour
         MostrarPanel(panelMenuPrincipal);
         if (toastPunto != null)
             toastPunto.gameObject.SetActive(false);
+        AgregarHoverBotones();
+    }
+
+    void AgregarHoverBotones()
+    {
+        Button[] botones = FindObjectsOfType<Button>(true);
+        foreach (Button btn in botones)
+        {
+            EventTrigger trigger = btn.GetComponent<EventTrigger>();
+            if (trigger == null) trigger = btn.gameObject.AddComponent<EventTrigger>();
+            EventTrigger.Entry entry = new EventTrigger.Entry();
+            entry.eventID = EventTriggerType.PointerEnter;
+            entry.callback.AddListener((data) => ReproducirSonidoHover());
+            trigger.triggers.Add(entry);
+        }
+    }
+
+    void ReproducirSonidoHover()
+    {
+        if (audioSourceUI != null && sonidoHover != null)
+            audioSourceUI.PlayOneShot(sonidoHover, volumenHover);
     }
 
     /// <summary>
@@ -97,9 +149,86 @@ public class UIManager : MonoBehaviour
     }
 
     // -------------------------------------------------------
+    IEnumerator ReproducirMusicaAleatoria()
+    {
+        while (true)
+        {
+            if (musicaSource == null || cancionesMenu == null || cancionesMenu.Length == 0)
+            {
+                yield return null;
+                continue;
+            }
+            if (!musicaSource.isPlaying)
+            {
+                int idx = Random.Range(0, cancionesMenu.Length);
+                while (cancionesMenu.Length > 1 && idx == ultimaCancion) idx = Random.Range(0, cancionesMenu.Length);
+                ultimaCancion = idx;
+                musicaSource.clip = cancionesMenu[idx];
+                musicaSource.volume = volumenMusica;
+                musicaSource.Play();
+            }
+            yield return null;
+        }
+    }
+
+    public void BajarVolumenMusica(float volumenObjetivo, float duracion)
+    {
+        if (musicaSource == null) return;
+        StartCoroutine(BajarVolumenMusicaCoroutine(volumenObjetivo, duracion));
+    }
+
+    public void SubirVolumenMusica(float volumenMaximo, float duracion)
+    {
+        if (musicaSource == null) return;
+        StartCoroutine(SubirVolumenMusicaCoroutine(volumenMaximo, duracion));
+    }
+
+    IEnumerator SubirVolumenMusicaCoroutine(float volumenMaximo, float duracion)
+    {
+        float inicio = musicaSource.volume;
+        float destino = volumenMaximo > 0 ? volumenMaximo : volumenMusica;
+        float t = 0f;
+        while (t < 1f)
+        {
+            t += Time.unscaledDeltaTime / Mathf.Max(0.01f, duracion);
+            musicaSource.volume = Mathf.Lerp(inicio, destino, t);
+            yield return null;
+        }
+        musicaSource.volume = destino;
+    }
+
+    IEnumerator BajarVolumenMusicaCoroutine(float volumenObjetivo, float duracion)
+    {
+        float inicio = musicaSource.volume;
+        float t = 0f;
+        while (t < 1f)
+        {
+            t += Time.unscaledDeltaTime / Mathf.Max(0.01f, duracion);
+            musicaSource.volume = Mathf.Lerp(inicio, volumenObjetivo, t);
+            yield return null;
+        }
+        musicaSource.volume = volumenObjetivo;
+    }
+
     public void MostrarPanel(GameObject panel)
     {
+        if (panel == panelHUD && BossManager.Instance != null)
+        {
+            BossManager.bloquearMenuJefes = true;
+            BossManager.Instance.combateIniciado = true;
+            BossManager.Instance.SalirModoHistoriaJefes();
+            if (panelBosses != null) panelBosses.SetActive(false);
+        }
+        if (panel == panelMenuPrincipal && musicaSource != null)
+        {
+            if (!musicaSource.isPlaying) StartCoroutine(ReproducirMusicaAleatoria());
+            musicaSource.volume = volumenMusica;
+        }
+        if (panel == panelMenuPrincipal && audioSourceUI != null && sonidoCerrarMenu != null) audioSourceUI.PlayOneShot(sonidoCerrarMenu, volumenCerrar);
+        if (panel != panelMenuPrincipal && panel != null && audioSourceUI != null && sonidoAbrirMenu != null) audioSourceUI.PlayOneShot(sonidoAbrirMenu, volumenAbrir);
         panelHUD?.SetActive(false);
+        panelBosses?.SetActive(false);
+        panelHelp?.SetActive(false);
         panelMenuPrincipal?.SetActive(false);
         panelSkins?.SetActive(false);
         panelModos?.SetActive(false);
@@ -110,6 +239,8 @@ public class UIManager : MonoBehaviour
         panelTorneo?.SetActive(false);
         panelBosses?.SetActive(false);
         panel?.SetActive(true);
+        if (panelHelp != null && panel != panelHelp) panelHelp.SetActive(false);
+        if (panel == panelHUD) { if (panelBosses != null) panelBosses.SetActive(false); }
         // El widget solo vive con la tienda; en el resto se retrae.
         ActualizarVisibilidadWidgetTienda();
     }
@@ -117,7 +248,9 @@ public class UIManager : MonoBehaviour
     // -------------------------------------------------------
     public void OnClickPlay()
     {
-        MostrarPanel(panelSkins);
+        if (BossManager.Instance != null) { BossManager.bloquearMenuJefes = false; BossManager.Instance.combateIniciado = false; }
+        MostrarPanel(panelModos);
+        AnimarEntradaModos();
     }
 
     /// <summary>
@@ -127,8 +260,9 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void OnClickBosses()
     {
+        BossManager.bloquearMenuJefes = false;
         BossManager bm0 = BossManager.Instance != null ? BossManager.Instance : FindObjectOfType<BossManager>();
-        if (bm0 != null) bm0.EntrarModoHistoriaJefes();
+        if (bm0 != null) { bm0.combateIniciado = false; bm0.EntrarModoHistoriaJefes(); }
         if (MainMenuBackgroundManager.Instance != null)
             MainMenuBackgroundManager.Instance.AbrirPanelJefes();
         MostrarPanel(panelBosses);
@@ -182,14 +316,23 @@ public class UIManager : MonoBehaviour
         GameManager.Instance?.AplicarSkinEquipadaAlIniciar();
         if (esperandoMapaPvP)
         {
+            BajarVolumenMusica(0f, 0.4f);
+            if (BossManager.Instance != null) { BossManager.bloquearMenuJefes = true; BossManager.Instance.combateIniciado = true; BossManager.Instance.SalirModoHistoriaJefes(); }
+            if (panelBosses != null) panelBosses.SetActive(false);
             esperandoMapaPvP = false;
             // Salir del fondo demo también en PvP (GameplayCamera + controles).
             MainMenuBackgroundManager.Instance?.SalirDelDemoHaciaPartida();
             GameManager.Instance?.IniciarPartidaPvP();
+        BajarVolumenMusica(0f, 0.4f);
+        if (BossManager.Instance != null) { BossManager.bloquearMenuJefes = true; BossManager.Instance.combateIniciado = true; BossManager.Instance.SalirModoHistoriaJefes(); }
+        if (panelBosses != null) panelBosses.SetActive(false);
             MostrarPanel(panelHUD);
         }
         else
         {
+            BajarVolumenMusica(0f, 0.4f);
+            if (BossManager.Instance != null) { BossManager.bloquearMenuJefes = true; BossManager.Instance.combateIniciado = true; BossManager.Instance.SalirModoHistoriaJefes(); }
+            if (panelBosses != null) panelBosses.SetActive(false);
             MostrarPanel(panelDificultad);
         }
     }
@@ -232,6 +375,9 @@ public class UIManager : MonoBehaviour
     // --- Modo Práctica ---
     public void OnClickModoPractica()
     {
+        BajarVolumenMusica(0f, 0.4f);
+        if (BossManager.Instance != null) { BossManager.bloquearMenuJefes = true; BossManager.Instance.combateIniciado = true; BossManager.Instance.SalirModoHistoriaJefes(); }
+        if (panelBosses != null) panelBosses.SetActive(false);
         GameManager.Instance?.DetenerVolcanes();
 
         var existing = FindObjectOfType<PracticeModeManager>();
@@ -277,8 +423,29 @@ public class UIManager : MonoBehaviour
     public void OnClickDificultadDificil()  => IniciarPartida(Dificultad.Dificil);
     public void OnClickDificultadInhumano() => IniciarPartida(Dificultad.Inhumano);
 
+    public void OnClickHelp()
+    {
+        if (panelHelp != null)
+        {
+            panelHelp.SetActive(true);
+            if (audioSourceUI != null && sonidoAbrirMenu != null) audioSourceUI.PlayOneShot(sonidoAbrirMenu, volumenAbrir);
+        }
+    }
+
+    public void OnClickCerrarHelp()
+    {
+        if (panelHelp != null)
+        {
+            panelHelp.SetActive(false);
+            if (audioSourceUI != null && sonidoCerrarMenu != null) audioSourceUI.PlayOneShot(sonidoCerrarMenu, volumenCerrar);
+        }
+    }
+
     public void OnClickVolverAlMenu()
     {
+        BossManager.bloquearMenuJefes = false;
+        if (BossManager.Instance != null) BossManager.Instance.combateIniciado = false;
+        SubirVolumenMusica(volumenMusica, 0.5f);
         GameManager.Instance?.DetenerVolcanes();
         // Al regresar al menú desde un combate: ciclo de vida OFF de jefes.
         BossManager bm = BossManager.Instance != null ? BossManager.Instance : FindObjectOfType<BossManager>();
@@ -306,9 +473,11 @@ public class UIManager : MonoBehaviour
     /// </summary>
     public void IniciarPartida(Dificultad d)
     {
+        BajarVolumenMusica(0f, 0.4f);
         if (MapManager.Instance != null && !MapManager.Instance.PuedeJugarMapaEnfocado()) { return; }
         Debug.Log($"[UIManager] 3. IniciarPartida({d})");
-        // Salir del fondo demo: GameplayCamera + controles del jugador + mapa elegido.
+        if (BossManager.Instance != null) { BossManager.bloquearMenuJefes = true; BossManager.Instance.combateIniciado = true; BossManager.Instance.SalirModoHistoriaJefes(); }
+        if (panelBosses != null) panelBosses.SetActive(false);
         MainMenuBackgroundManager.Instance?.SalirDelDemoHaciaPartida();
         if (GameManager.Instance != null)
         {
@@ -509,13 +678,71 @@ public class UIManager : MonoBehaviour
             bool jugadorTienePartido = TournamentUIManager.TorneoActual != null
                 && TournamentUIManager.TorneoActual.ObtenerPartidoDelJugador() != null;
 
-            // ObtenerPartidoDelJugador() solo devuelve partidos con !jugado.
-            // Si no hay partido pendiente y el torneo no terminó, el jugador fue eliminado.
             bool mostrarNuevoTorneo = torneoTerminado || (!jugadorTienePartido && !torneoTerminado);
 
             if (botonReintentar != null)        botonReintentar.SetActive(false);
             if (botonContinuarTorneo != null)   botonContinuarTorneo.SetActive(!mostrarNuevoTorneo);
             if (botonNuevoTorneo != null)       botonNuevoTorneo.SetActive(mostrarNuevoTorneo);
         }
+    }
+
+    public void ReproducirSonidoClick()
+    {
+        if (audioSourceUI != null && sonidoClick != null)
+            audioSourceUI.PlayOneShot(sonidoClick, volumenClick);
+    }
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        ReproducirSonidoHover();
+    }
+    public void AnimarEntradaModos()
+    {
+        ReproducirSonidoClick();
+        if (audioSourceUI != null && sonidoAbrirMenu != null) audioSourceUI.PlayOneShot(sonidoAbrirMenu, volumenAbrir);
+        if (panelModos != null && UIAnimationManager.Instance != null)
+            UIAnimationManager.Instance.ScaleIn(panelModos.GetComponent<RectTransform>());
+    }
+
+    public void AnimarSalidaModos()
+    {
+        ReproducirSonidoClick();
+        if (audioSourceUI != null && sonidoCerrarMenu != null) audioSourceUI.PlayOneShot(sonidoCerrarMenu, volumenCerrar);
+        if (panelModos != null && UIAnimationManager.Instance != null)
+            UIAnimationManager.Instance.ScaleOut(panelModos.GetComponent<RectTransform>());
+    }
+
+    public void AnimarEntradaShop()
+    {
+        ReproducirSonidoClick();
+        if (audioSourceUI != null && sonidoAbrirMenu != null) audioSourceUI.PlayOneShot(sonidoAbrirMenu, volumenAbrir);
+        if (panelTienda != null && UIAnimationManager.Instance != null)
+            UIAnimationManager.Instance.SlideFromRight(panelTienda.GetComponent<RectTransform>());
+    }
+
+    public void AnimarSalidaShop()
+    {
+        ReproducirSonidoClick();
+        if (audioSourceUI != null && sonidoCerrarMenu != null) audioSourceUI.PlayOneShot(sonidoCerrarMenu, volumenCerrar);
+        if (panelTienda != null && UIAnimationManager.Instance != null)
+            UIAnimationManager.Instance.SlideToRight(panelTienda.GetComponent<RectTransform>());
+    }
+
+    public void AnimarSelectorMapasVsCPU()
+    {
+        ReproducirSonidoClick();
+        if (audioSourceUI != null && sonidoAbrirMenu != null) audioSourceUI.PlayOneShot(sonidoAbrirMenu, volumenAbrir);
+        if (panelMapas != null && UIAnimationManager.Instance != null)
+            UIAnimationManager.Instance.SlideFromLeft(panelMapas.GetComponent<RectTransform>());
+    }
+
+    public void AnimarPanelTorneoHistoria()
+    {
+        ReproducirSonidoClick();
+        if (audioSourceUI != null && sonidoAbrirMenu != null) audioSourceUI.PlayOneShot(sonidoAbrirMenu, volumenAbrir);
+        if (panelTorneo != null && UIAnimationManager.Instance != null)
+            UIAnimationManager.Instance.SlideFromBottom(panelTorneo.GetComponent<RectTransform>());
+        if (panelBosses != null && UIAnimationManager.Instance != null)
+            UIAnimationManager.Instance.SlideFromBottom(panelBosses.GetComponent<RectTransform>());
     }
 }

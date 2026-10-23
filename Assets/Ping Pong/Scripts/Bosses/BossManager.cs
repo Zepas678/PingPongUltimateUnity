@@ -76,7 +76,7 @@ public class BossManager : MonoBehaviour
 
     /// <summary>Indica si el combate ya fue iniciado (evita reapertura del menú).</summary>
     public static bool bloquearMenuJefes = false;
-    private bool combateIniciado = false;
+    public bool combateIniciado = false;
 
     void Awake()
     {
@@ -409,6 +409,7 @@ public class BossManager : MonoBehaviour
     {
         combateIniciado = false;
         bloquearMenuJefes = false;
+        enabled = true;
         // TODO RASTREO-CLD: temporal. Quitar al estabilizar.
         Debug.Log($"[RASTREO CLD] Método llamado: EntrarModoHistoriaJefes | currentBossIndex actual: {currentBossIndex} | frame: {Time.frameCount}");
         enabled = true;
@@ -614,6 +615,10 @@ public class BossManager : MonoBehaviour
             JefeActivo = null;
         }
         enabled = false;
+        bloquearMenuJefes = false;
+        combateIniciado = false;
+        if (bossInfoCard != null) bossInfoCard.SetActive(false);
+        if (panelInfoJefe != null) panelInfoJefe.SetActive(false);
     }
     public void SeleccionarPrimerJefeYRefrescar()
     {
