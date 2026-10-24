@@ -26,6 +26,9 @@ public class UIManager : MonoBehaviour, IPointerEnterHandler
     [Header("Panel Help")]
     public GameObject panelHelp;
 
+    [Header("Panel Options")]
+    public GameObject panelOptions;
+
     [Header("Marcador")]
     public TMP_Text scoreJugador;
     public TMP_Text scoreCPU;
@@ -76,6 +79,7 @@ public class UIManager : MonoBehaviour, IPointerEnterHandler
         Instance = this;
         audioSourceUI = GetComponent<AudioSource>();
         if (audioSourceUI == null) audioSourceUI = gameObject.AddComponent<AudioSource>();
+        audioSourceUI.volume = 0.6f;
         if (musicaSource == null)
         {
             GameObject mgo = new GameObject("MusicaMenu");
@@ -112,7 +116,8 @@ public class UIManager : MonoBehaviour, IPointerEnterHandler
 
     void ReproducirSonidoHover()
     {
-        if (audioSourceUI != null && sonidoHover != null)
+        if (audioSourceUI == null) return;
+        if (sonidoHover != null)
             audioSourceUI.PlayOneShot(sonidoHover, volumenHover);
     }
 
@@ -229,6 +234,7 @@ public class UIManager : MonoBehaviour, IPointerEnterHandler
         panelHUD?.SetActive(false);
         panelBosses?.SetActive(false);
         panelHelp?.SetActive(false);
+        panelOptions?.SetActive(false);
         panelMenuPrincipal?.SetActive(false);
         panelSkins?.SetActive(false);
         panelModos?.SetActive(false);
@@ -240,6 +246,7 @@ public class UIManager : MonoBehaviour, IPointerEnterHandler
         panelBosses?.SetActive(false);
         panel?.SetActive(true);
         if (panelHelp != null && panel != panelHelp) panelHelp.SetActive(false);
+        if (panelOptions != null && panel != panelOptions) panelOptions.SetActive(false);
         if (panel == panelHUD) { if (panelBosses != null) panelBosses.SetActive(false); }
         // El widget solo vive con la tienda; en el resto se retrae.
         ActualizarVisibilidadWidgetTienda();
@@ -432,11 +439,26 @@ public class UIManager : MonoBehaviour, IPointerEnterHandler
         }
     }
 
-    public void OnClickCerrarHelp()
+    public void CambiarVolumenMaster(float valor){ if(float.IsNaN(valor)||float.IsInfinity(valor)) return; float v=valor>1f?valor/100f:valor; v=Mathf.Clamp01(v); AudioListener.volume=v; AudioListener.pause=false; }
+
+    public void CambiarVolumenMusica(float valor){ if(float.IsNaN(valor)||float.IsInfinity(valor)) return; float v=valor>1f?valor/100f:valor; v=Mathf.Clamp01(v); volumenMusica=v; if(musicaSource!=null){ musicaSource.mute=false; musicaSource.volume=volumenMusica; if(!musicaSource.isPlaying && cancionesMenu!=null && cancionesMenu.Length>0){ /* mantener */ } } }
+
+    public void CambiarVolumenSFX(float valor){ if(float.IsNaN(valor)||float.IsInfinity(valor)) return; float v=valor>1f?valor/100f:valor; v=Mathf.Clamp01(v); volumenClick=v*0.5f; volumenHover=v*0.2f; volumenAbrir=v*0.6f; volumenCerrar=v*0.6f; if(audioSourceUI!=null){ audioSourceUI.mute=false; audioSourceUI.volume=v; } }
+
+    public void OnClickOptions()
     {
-        if (panelHelp != null)
+        if (panelOptions != null)
         {
-            panelHelp.SetActive(false);
+            panelOptions.SetActive(true);
+            if (audioSourceUI != null && sonidoAbrirMenu != null) audioSourceUI.PlayOneShot(sonidoAbrirMenu, volumenAbrir);
+        }
+    }
+
+    public void OnClickCerrarOptions()
+    {
+        if (panelOptions != null)
+        {
+            panelOptions.SetActive(false);
             if (audioSourceUI != null && sonidoCerrarMenu != null) audioSourceUI.PlayOneShot(sonidoCerrarMenu, volumenCerrar);
         }
     }
@@ -688,7 +710,8 @@ public class UIManager : MonoBehaviour, IPointerEnterHandler
 
     public void ReproducirSonidoClick()
     {
-        if (audioSourceUI != null && sonidoClick != null)
+        if (audioSourceUI == null) return;
+        if (sonidoClick != null)
             audioSourceUI.PlayOneShot(sonidoClick, volumenClick);
     }
 
