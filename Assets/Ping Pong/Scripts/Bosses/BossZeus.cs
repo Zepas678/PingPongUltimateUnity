@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections;
+using System.IO;
 
 /// <summary>
 /// Jefe Zeus: controla los rayos.
@@ -14,13 +15,94 @@ public class BossZeus : BossController
     /// <summary>Instancia única referenciada por PingPongBall para notificar los golpes de CPU.</summary>
     public static BossZeus Instance { get; private set; }
 
+    /// <summary>Flag de inicialización diferida: asegura que Zeus se configure una sola vez y nunca en bucle.</summary>
+    private bool inicializadoUnaVez = false;
+
     private void Awake()
     {
-        Instance = this;
+        string escena = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        bool enContextoJefe = BossManager.Instance != null || escena.Contains("Boss");
+
+        // DEBUG: confirmar instanciación de BossZeus en escena
+        Debug.Log("[BOSSZEUS AWAKE] Instanciando BossZeus | gameObject=" + gameObject.name + " | scene=" + escena + " | enContextoJefe=" + enContextoJefe);
+
+        // Solo registrarse como Singleton si estamos en una escena de jefe válida
+        // o existe un BossManager activo. Evita que el menú principal deje fantasmas.
+        if (!enContextoJefe)
+        {
+            Debug.Log("[BOSSZEUS AWAKE] Fuera de contexto de jefe. No se registra como instancia y se desactiva.");
+            this.enabled = false;
+            return;
+        }
+
+        // SINGLETON: garantiza una única instancia activa de BossZeus en escena.
+        // Evita que el menú principal (demo de fondo) deje una instancia fantasma
+        // que interfiera con FindObjectsOfType<BossZeus>() durante el combate.
+        if (Instance == null)
+        {
+            Instance = this;
+            Debug.Log("[BOSSZEUS AWAKE] Instance asignado = this | gameObject=" + gameObject.name);
+        }
+        else if (Instance != this)
+        {
+            Debug.Log("[BOSSZEUS AWAKE] Duplicado detectado, destruyendo: " + gameObject.name + " (Instance ya existe: " + Instance.gameObject.name + ")");
+            Destroy(this);
+            return;
+        }
+        StartCoroutine(InicializarDiferido());
+    }
+
+    private void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+            Debug.Log("[BOSSZEUS] OnDestroy: Instance limpiado.");
+        }
+    }
+
+    void OnDisable()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+            Debug.Log("[BOSSZEUS] OnDisable: Instance limpiado.");
+        }
+        combateActivo = false;
+    }
+
+    void OnEnable()
+    {
+        // Respaldo incondicional: asegurar instancia y combate activo al reactivarse.
+        // OnDisable los limpia al entrar al menú; OnEnable los restaura al volver a la batalla.
+        if (Instance == null || Instance != this)
+        {
+            Instance = this;
+            combateActivo = true;
+            Debug.Log("[BOSSZEUS] OnEnable: Instance y combateActivo restaurados.");
+        }
+    }
+
+    /// <summary>
+    /// Inicialización diferida de Zeus. Se ejecuta una sola vez en el primer frame
+    /// disponible, evitando búsquedas síncronas de componentes en el arranque que
+    /// puedan bloquear el hilo principal al pulsar "Combatir".
+    /// </summary>
+    private System.Collections.IEnumerator InicializarDiferido()
+    {
+        // Esperar un frame para que la jerarquía y las referencias estén listas.
+        yield return null;
+
+        if (inicializadoUnaVez) yield break;
+        inicializadoUnaVez = true;
+
+        // Aquí se pueden agregar búsquedas de componentes de forma segura,
+        // una sola vez, sin bloquear el arranque del combate.
     }
 
     // ── AudioSource que reproduce el sonido de la habilidad ──
     private AudioSource audioSource;
+    private bool sonidoRayoReproduciendo = false;
 
     /// <summary>
     /// Reproduce sonidoRayo de forma segura (PlayOneShot). Si sonidoRayo es null
@@ -29,6 +111,7 @@ public class BossZeus : BossController
     private void ReproducirSonidoRayo()
     {
         if (sonidoRayo == null) return;
+        if (sonidoRayoReproduciendo) return;
 
         if (audioSource == null)
         {
@@ -37,8 +120,11 @@ public class BossZeus : BossController
                 audioSource = gameObject.AddComponent<AudioSource>();
         }
 
-        if (audioSource != null)
+        if (audioSource != null && !audioSource.isPlaying)
+        {
             audioSource.PlayOneShot(sonidoRayo);
+            sonidoRayoReproduciendo = true;
+        }
     }
 
     [Header("Configuración de Zeus")]
@@ -163,9 +249,33 @@ public class BossZeus : BossController
     /// <summary>Frames restantes de seguimiento de posición tras el teletransporte.</summary>
     private int framesSegumientoDiag = 0;
 
+    /// <summary>Contador duro de frames con rayo activo para evitar bucles infinitos.</summary>
+    private int framesActualizacionRayo = 0;
+
     // ──────────────────────────────────────────────
     void Update()
     {
+        if (!combateActivo) return;
+
+        // Proteccion dura contra bucles de frame por segundo en Zeus
+        if (rayoActivo)
+        {
+            framesActualizacionRayo++;
+            if (framesActualizacionRayo > 300) // Si el rayo dura mas de 5 segundos seguidos activo sin avanzar, forzar apagado
+            {
+                Debug.LogWarning("[BossZeus] SEGURIDAD: Rayo atrapado en bucle. Forzando cierre de emergencia.");
+                rayoActivo = false;
+                teletransporteEnProgreso = false;
+                framesActualizacionRayo = 0;
+                FinalizarRayo();
+                return;
+            }
+        }
+        else
+        {
+            framesActualizacionRayo = 0;
+        }
+
         // ── Seguimiento temporal post-teletransporte ──
         // Registra si rb.position se mantiene en nuevaPosicion o lo mueven.
         if (framesSegumientoDiag > 0)
@@ -191,12 +301,23 @@ public class BossZeus : BossController
         // Si el rayo está cargando, actualizarlo y esperar
         if (rayoActivo)
         {
+            if (lineRendererRayo == null || rayoInstanciado == null)
+            {
+                // El rayo se perdió: forzar finalización limpia
+                rayoActivo = false;
+                finalizandoRayo = false;
+                lineRendererRayo = null;
+                return;
+            }
             ActualizarRayo();
             return;
         }
 
         // Sin jugador referenciado no se puede detectar
         if (jugador == null) return;
+
+        // Validar referencias de mesa antes de detectar golpe
+        if (centroMesa == null || ladoJugador == null) return;
 
         DetectarPelotaHaciaJugador();
     }
@@ -209,6 +330,9 @@ public class BossZeus : BossController
     /// </summary>
     private void DetectarPelotaHaciaJugador()
     {
+        // Validación estricta: evitar excepción silenciosa si ball es null
+        if (ball == null) return;
+
         Rigidbody rb = ball.GetComponent<Rigidbody>();
         if (rb == null) return;
 
@@ -463,23 +587,13 @@ public class BossZeus : BossController
             EjecutarTeletransporte();
             return;
         }
-        Debug.Log($"[BossZeus] DIAG: efectoRayoPrefab asignado: {efectoRayoPrefab.name}");
 
         // Instanciar el rayo en la posición de Zeus
         rayoInstanciado = Instantiate(efectoRayoPrefab, transform.position, Quaternion.identity);
 
-        // ── Diagnóstico: ¿se instanció correctamente? ──
-        Debug.Log($"[BossZeus] DIAG: Rayo instanciado: {(rayoInstanciado != null ? rayoInstanciado.name : "NULL")}");
-        Debug.Log($"[BossZeus] DIAG: Instantiate() time={Time.time:F3}");
-        Debug.Log($"[BossZeus] DIAG: rayoInstanciado != null: {rayoInstanciado != null}");
-        Debug.Log($"[BossZeus] DIAG: activeSelf = {rayoInstanciado.activeSelf}");
-        Debug.Log($"[BossZeus] DIAG: activeInHierarchy = {rayoInstanciado.activeInHierarchy}");
-
         // Obtener el LineRenderer del prefab instanciado
         lineRendererRayo = rayoInstanciado.GetComponent<LineRenderer>();
 
-        // ── Diagnóstico: ¿encontró el LineRenderer? ──
-        Debug.Log($"[BossZeus] DIAG: LineRenderer encontrado: {(lineRendererRayo != null ? "SI" : "NO")}");
         if (lineRendererRayo == null)
         {
             Debug.LogWarning("[BossZeus] El prefab del rayo no tiene LineRenderer. Teletransporte inmediato.");
@@ -489,47 +603,14 @@ public class BossZeus : BossController
             return;
         }
 
-        // ── Diagnóstico: confirmar que el prefab instanciado es el correcto ──
-        Debug.Log($"[BossZeus] DIAG: efectoRayoPrefab.name = {efectoRayoPrefab.name}");
-        Debug.Log($"[BossZeus] DIAG: rayoInstanciado.name = {rayoInstanciado.name}");
-        Debug.Log($"[BossZeus] DIAG: lineRendererRayo.name = {lineRendererRayo.name}");
-        Debug.Log($"[BossZeus] DIAG: sharedMaterial = {(lineRendererRayo.sharedMaterial != null ? lineRendererRayo.sharedMaterial.name : "NULL")}");
-        Debug.Log($"[BossZeus] DIAG: widthMultiplier = {lineRendererRayo.widthMultiplier}");
-        Debug.Log($"[BossZeus] DIAG: useWorldSpace = {lineRendererRayo.useWorldSpace}");
-
-        // ── Diagnóstico: componentes del prefab instanciado ──
-        Debug.Log($"[BossZeus] DIAG: Componentes — LineRenderer: {(rayoInstanciado.GetComponent<LineRenderer>() != null ? "EXISTE" : "NO")} | AudioSource: {(rayoInstanciado.GetComponent<AudioSource>() != null ? "EXISTE" : "NO")} | ParticleSystem: {(rayoInstanciado.GetComponent<ParticleSystem>() != null ? "EXISTE" : "NO")} | Animator: {(rayoInstanciado.GetComponent<Animator>() != null ? "EXISTE" : "NO")}");
-
         // Configurar los puntos del rayo zigzag (P0=Zeus, P7=Pelota)
         lineRendererRayo.positionCount = PUNTOS_RAYO;
         desplazamientosZigzag = new Vector3[PUNTOS_RAYO - 2]; // P1 a P6
         GenerarPatronZigzag();
         AplicarPosicionesRayo();
 
-        // ── Diagnóstico: ¿positionCount vale 8? ──
-        Debug.Log($"[BossZeus] DIAG: positionCount = {lineRendererRayo.positionCount}");
-
-        // ── Diagnóstico: estado del LineRenderer ──
-        Debug.Log($"[BossZeus] DIAG: Posición inicial (GetPosition(0)) = {lineRendererRayo.GetPosition(0)}");
-        Debug.Log($"[BossZeus] DIAG: Posición final (GetPosition(1)) = {lineRendererRayo.GetPosition(1)}");
-        Debug.Log($"[BossZeus] DIAG: startWidth = {lineRendererRayo.startWidth}");
-        Debug.Log($"[BossZeus] DIAG: endWidth = {lineRendererRayo.endWidth}");
-        Debug.Log($"[BossZeus] DIAG: enabled = {lineRendererRayo.enabled}");
-
         rayoActivo = true;
         rayoInicioTiempo = Time.time;
-        Debug.Log($"[BossZeus] DIAG: IniciarRayo() fin time={Time.time:F3}");
-
-        // ── Diagnóstico: verificación de posiciones ──
-        Debug.Log($"[BossZeus] DIAG: BossZeus.transform.position = {transform.position}");
-        Debug.Log($"[BossZeus] DIAG: RayoZeus(Clone).transform.position = {(rayoInstanciado != null ? rayoInstanciado.transform.position.ToString() : "NULL")}");
-        Debug.Log($"[BossZeus] DIAG: ball.transform.position = {ball.transform.position}");
-        Debug.Log($"[BossZeus] DIAG: P0 (GetPosition(0)) = {lineRendererRayo.GetPosition(0)}");
-        Debug.Log($"[BossZeus] DIAG: P7 (GetPosition(7)) = {lineRendererRayo.GetPosition(7)}");
-        Debug.Log($"[BossZeus] DIAG: useWorldSpace = {lineRendererRayo.useWorldSpace}");
-        Debug.Log($"[BossZeus] DIAG: positionCount = {lineRendererRayo.positionCount}");
-        Debug.Log($"[BossZeus] DIAG: BossZeus.transform.position == P0 ? {transform.position == lineRendererRayo.GetPosition(0)}");
-        Debug.Log($"[BossZeus] DIAG: ball.transform.position == P7 ? {ball.transform.position == lineRendererRayo.GetPosition(7)}");
     }
 
     // ──────────────────────────────────────────────
@@ -540,9 +621,6 @@ public class BossZeus : BossController
     /// </summary>
     private void ActualizarRayo()
     {
-        // ── Diagnóstico: ¿se ejecuta cada frame? ──
-        Debug.Log($"[BossZeus] DIAG: ActualizarRayo() frame={Time.frameCount} | time={Time.time:F3} | rayoActivo={rayoActivo} | lineRenderer={(lineRendererRayo != null ? "OK" : "NULL")} | activeSelf={(rayoInstanciado != null ? rayoInstanciado.activeSelf.ToString() : "N/A")} | activeInHierarchy={(rayoInstanciado != null ? rayoInstanciado.activeInHierarchy.ToString() : "N/A")}");
-
         // Regenerar el patrón del zigzag periódicamente para dar sensación de electricidad
         if (Time.time >= ultimoPatronTiempo + intervaloRegeneracion)
         {
@@ -590,22 +668,11 @@ public class BossZeus : BossController
     /// </summary>
     private IEnumerator CoroutineSecuenciaTeletransporte(Vector3 nuevaPosicion)
     {
-        // ── Diagnóstico temporal: inicio de la coroutine ──
-        Debug.Log($"[BossZeus] DIAG COROUTINE INICIO: frame={Time.frameCount} | nuevaPosicion={nuevaPosicion} | rayoActivo={rayoActivo} | rayoActiveSelf={(rayoInstanciado != null ? rayoInstanciado.activeSelf.ToString() : "N/A")}");
-
-        // La estrella YA fue creada en la Fase 1 (ActivarHabilidad).
-        // Aquí solo se referencia para destruirla antes del TP.
         GameObject estrella = estrellaPendiente;
-        Debug.Log($"[DIAG BOSSZEUS] COROUTINE ARRANCADA | frame={Time.frameCount} | combateActivo={combateActivo} | estado={estado} | teletransporteEnProgreso={teletransporteEnProgreso} | estrellaPendiente={(estrellaPendiente != null ? "EXISTE" : "NULL")} | nuevaPosicion={nuevaPosicion} | enabled={enabled} | activeInHierarchy={gameObject.activeInHierarchy}");
 
-        // La coroutine SOLO se inicia en la FASE 2 (segundo golpe real de la CPU).
-        // Aquí se calcula la espera variable con la velocidad JUSTO después del golpe:
-        //   reducida: siempre ≈ 1.1 s (lenta 1.1 s, rápida 1.0 s) para TP más frecuente.
         Rigidbody rbEspera = ball != null ? ball.GetComponent<Rigidbody>() : null;
         if (rbEspera == null)
         {
-            Debug.Log("[DIAG BOSSZEUS] SALIDA TEMPRANA: rbEspera NULL al arrancar la coroutine. No habrá TP.");
-            // Limpieza completa del estado de la habilidad antes de salir
             teletransporteEnProgreso = false;
             estrellaEsperandoGolpe = false;
             if (estrellaPendiente != null)
@@ -616,23 +683,14 @@ public class BossZeus : BossController
             yield break;
         }
 
-        // La validación de la dirección X ya se hizo en ActivarHabilidadDesdeGolpeCPU()
-        // usando velocidadXAntesDelGolpe < 0f. El +X posterior al golpe de la CPU
-        // es el comportamiento normal y esperado, por lo que aquí NO se rechaza.
         float velocidadActual = rbEspera.linearVelocity.magnitude;
         float tVelocidad = Mathf.InverseLerp(ball.initialSpeed, ball.maxSpeed, velocidadActual);
         float espera = Mathf.Lerp(1.1f, 1f, tVelocidad);
         yield return new WaitForSeconds(espera);
 
-        // ── Diagnóstico de fin de espera ──
-        Debug.Log($"[BossZeus] DIAG ESPERA TERMINADA (2do golpe): frame={Time.frameCount} | espera={espera:F2} | velocidad={velocidadActual:F1}");
-
-        // ── VERIFICACIÓN MÍNIMA DESPUÉS DE LA ESPERA ──
         Rigidbody rb = ball != null ? ball.GetComponent<Rigidbody>() : null;
-        if (rb == null)
+        if (rb == null || !combateActivo)
         {
-            Debug.Log("[DIAG BOSSZEUS] SALIDA TEMPRANA: rb NULL tras la espera. No habrá TP.");
-            // Limpieza completa del estado de la habilidad antes de salir
             teletransporteEnProgreso = false;
             estrellaEsperandoGolpe = false;
             if (estrellaPendiente != null)
@@ -643,111 +701,44 @@ public class BossZeus : BossController
             yield break;
         }
 
-        // Velocidad X ACTUAL leída justo después de WaitForSeconds.
-        float velocidadXDespuesDeLaEspera = rb.linearVelocity.x;
-
-        // ── VALIDACIÓN TRAS LA ESPERA ──
-        // Cancelación SOLO si el combate terminó o la pelota desapareció durante
-        // la espera. Un isKinematic con combateActivo=true y ball!=null NO
-        // cancela el TP por sí solo (validación equivalente más amplia).
-        if (!combateActivo || ball == null)
+        if (estrellaPendiente != null)
         {
-            Debug.Log($"[BossZeus] TELETRANSPORTE CANCELADO tras la espera: frame={Time.frameCount} | combateActivo={combateActivo} | ball={(ball != null ? "OK" : "NULL")} | isKinematic={rb.isKinematic} | velocidadXDespuesDeLaEspera={velocidadXDespuesDeLaEspera:F2} | destino descartado={nuevaPosicion}");
-            if (estrella != null)
-            {
-                Destroy(estrella);
-                estrella = null;
-            }
+            Destroy(estrellaPendiente);
             estrellaPendiente = null;
-            teletransporteEnProgreso = false;
-            Debug.Log("[DIAG BOSSZEUS] teletransporteEnProgreso liberado a false (combate inactivo o sin pelota).");
-            yield break;
-        }
-
-        Debug.Log($"[BossZeus] PASÓ isKinematic | velocidadX={velocidadXDespuesDeLaEspera:F2}");
-
-        // La señal fue el SEGUNDO golpe CPU validado con velocidadXAntesDelGolpe < 0f.
-        // La espera se redujo a ≈1.1 s y NO se cancela por dirección: aunque la
-        // pelota esté en -X al terminar la espera, el teletransporte se ejecuta
-        // y su componente X se fuerza a +X justo antes del salto.
-
-        // ── DESTRUIR LA ESTRELLA DE LA FASE 1 ANTES DEL TP ──
-        // Ya NO se espera dirección +X/-X: la señal fue el segundo golpe FÍSICO.
-        if (estrella != null)
-        {
-            Destroy(estrella);
-            estrella = null;
         }
 
         estrellaPendiente = null;
         estrellaEsperandoGolpe = false;
-        Debug.Log($"[DIAG BOSSZEUS] PUNTO DE NO RETORNO: estrella consumida, a punto de ejecutar el TP | destino={nuevaPosicion} | velocidadXDespuesDeLaEspera={velocidadXDespuesDeLaEspera:F2}");
 
-        // 3. Teletransportar usando EXACTAMENTE la misma posición calculada.
-        //    Antes del salto, la componente X de la velocidad se fuerza a +X
-        //    (salida hacia el jugador); Y y Z no se modifican.
-        // Protección final: no ejecutar el TP si la ronda terminó durante la espera.
+        // Teletransportar usando exactamente la misma posición calculada.
         if (!combateActivo || ball == null)
         {
-            Debug.Log("[DIAG BOSSZEUS] TP ABORTADO justo antes del salto: combate inactivo o sin pelota.");
             teletransporteEnProgreso = false;
             yield break;
         }
-        Debug.Log($"[BossZeus] EJECUTANDO TELETRANSPORTE | destino={nuevaPosicion} | velocidadX={velocidadXDespuesDeLaEspera:F2}");
+
         Vector3 velocidad = rb.linearVelocity;
         velocidad.x = Mathf.Abs(velocidad.x);
         rb.linearVelocity = velocidad;
         rb.position = nuevaPosicion;
         Physics.SyncTransforms();
-        Debug.Log(
-            $"[BossZeus] DIAG TP COMPLETO | " +
-            $"rb.position={rb.position} | " +
-            $"ball.transform.position={ball.transform.position} | " +
-            $"velocidad={rb.linearVelocity}"
-        );
-        Debug.Log($"[BossZeus] DIAG RB POSITION ASIGNADO: frame={Time.frameCount} | rb.position={rb.position} | nuevaPosicion={nuevaPosicion}");
 
-        // Iniciar seguimiento de posición durante 10 frames para detectar si la mueven
+        // Iniciar seguimiento de posición durante 10 frames.
         ultimaPosicionTeleDiag = nuevaPosicion;
         framesSegumientoDiag = 10;
 
-        // 4. Efecto de aparición en la posición final real de la pelota
+        // Efecto de aparición en la posición final real de la pelota.
         if (prefabAparicion != null)
         {
             GameObject aparicion = Instantiate(prefabAparicion, rb.position, Quaternion.identity);
-
-            // Activar explícitamente la instancia (el prefab original está inactivo)
             if (aparicion != null)
             {
                 aparicion.SetActive(true);
-                Destroy(aparicion, 0.5f); // Auto-destrucción para no acumular
+                Destroy(aparicion, 0.5f);
             }
-
-            Debug.Log($"[BossZeus] Aparicion: prefab={prefabAparicion.name} | pos={rb.position} | instancia={(aparicion != null ? "OK" : "NULL")} | activeSelf={(aparicion != null ? aparicion.activeSelf.ToString() : "N/A")} | activeInHierarchy={(aparicion != null ? aparicion.activeInHierarchy.ToString() : "N/A")}");
-
-            // Diagnóstico de ParticleSystem en la instancia
-            if (aparicion != null)
-            {
-                ParticleSystem[] sistemas = aparicion.GetComponentsInChildren<ParticleSystem>(true);
-                Debug.Log($"[BossZeus] Aparicion: sistemas encontrados={sistemas.Length}");
-                foreach (ParticleSystem sistema in sistemas)
-                {
-                    if (sistema != null)
-                        Debug.Log($"[BossZeus] Aparicion: sistema='{sistema.name}' | active={sistema.gameObject.activeSelf} | isPlaying={sistema.isPlaying}");
-                }
-            }
-
-            // Diagnóstico visual completo de la aparición
-            DiagnosticarEfectoVisual(aparicion, "Aparicion");
-        }
-        else
-        {
-            Debug.LogWarning("[BossZeus] prefabAparicion es NULL — no se mostró la aparición.");
         }
 
-        // 5. Crear el rayo AHORA (después del teletransporte) como destello.
-        //    IniciarRayo() instancia el prefab y aplica P0-P7 usando la NUEVA
-        //    posición de la pelota (rb.position).
+        // Crear el rayo tras el teletransporte como destello.
         IniciarRayo();
         if (rayoInstanciado != null)
             rayoInstanciado.SetActive(true);
@@ -757,19 +748,13 @@ public class BossZeus : BossController
             AplicarPosicionesRayo();
         }
 
-        // Reproducir el sonido de la habilidad en el momento en que se crea el
-        // efecto del rayo (destello tras el teletransporte). No interfiere con
-        // la lógica ni el estado de la habilidad.
         ReproducirSonidoRayo();
 
-        // 6. Fase de finalización: el rayo se muestra solo 0.1s como destello
         rayoActivo = false;
         finalizandoRayo = true;
         finalizarRayoTiempo = Time.time;
 
-        // 7. Liberar el bloqueo para que la habilidad pueda volver a ejecutarse
         teletransporteEnProgreso = false;
-        Debug.Log($"[DIAG BOSSZEUS] COROUTINE FIN NORMAL: teletransporteEnProgreso liberado a false | frame={Time.frameCount} | combateActivo={combateActivo} | estado={estado} | estrellaPendiente={(estrellaPendiente != null ? "EXISTE" : "NULL")}");
     }
 
     // ──────────────────────────────────────────────
@@ -799,9 +784,8 @@ public class BossZeus : BossController
     /// </summary>
     private void GenerarPatronZigzag()
     {
+        // Validación estricta: evitar excepciones si faltan referencias de mesa o pelota
         if (desplazamientosZigzag == null || ball == null) return;
-
-        // Referencias de la mesa necesarias para el eje transversal
         if (ladoJugador == null || ladoCPU == null) return;
 
         // Eje longitudinal de la mesa (largo, CPU → jugador)
@@ -965,12 +949,39 @@ public class BossZeus : BossController
         rayoInstanciado = null;
         lineRendererRayo = null;
         rayoActivo = false;
+        sonidoRayoReproduciendo = false;
     }
 
     // ──────────────────────────────────────────────
     public override void IniciarCombate()
     {
+        string metodo = "BossZeus.IniciarCombate";
+        string path = Application.persistentDataPath + "/crash_debug.txt";
+        System.IO.File.AppendAllText(path, $"[{System.DateTime.Now:HH:mm:ss.fff}] {metodo} >>> ENTRA >>> combateActivo={combateActivo}, estado={estado}, inicializadoUnaVez={inicializadoUnaVez}\n");
+        // Si el botón "Combatir" llamó directamente a Zeus en lugar de a
+        // BossManager.StartBossBattle(), delegar en el flujo principal para que
+        // se oculte el panel de jefes, se cargue el mapa y se inicie la partida.
+        var bm = BossManager.Instance;
+        if (bm != null && !bm.startBossBattleEnCurso)
+        {
+            return;
+        }
+
+        // Seguridad: si la inicialización diferida aún no terminó, esperar
+        // un frame y reintentar, en lugar de bloquear el hilo principal.
+        if (!inicializadoUnaVez)
+        {
+            StartCoroutine(EsperarInicializacionYIniciarCombate());
+            return;
+        }
+
         base.IniciarCombate();
+
+        // ■ ESTABLECER COMBATE ACTIVO: asegurar que combateActivo sea true
+        // para que PingPongBall detecte a Zeus como jefe activo.
+        combateActivo = true;
+        Instance = this;
+        Debug.Log("[BOSSZEUS] IniciarCombate() - combateActivo establecido a TRUE | gameObject=" + gameObject.name);
 
         // Permitir el primer ataque inmediatamente al iniciar el combate
         ultimoAtaqueTiempo = -Mathf.Infinity;
@@ -988,9 +999,42 @@ public class BossZeus : BossController
         }
         FinalizarRayo();
 
+
+        // � REGISTRO EN LA PELOTA: avisar a PingPongBall que Zeus es el jefe activo
+        // para que bossZeusActivo sea true sin necesidad de buscar en cada golpe.
+        try
+        {
+            PingPongBall bola = FindObjectOfType<PingPongBall>();
+            if (bola != null)
+            {
+                bola.bossZeusActivo = true;
+            }
+        }
+        catch (System.Exception) { }
         // ── Diagnóstico de referencias ──
         Debug.Log("[BossZeus] 5. IniciarCombate() ejecutado.");
         Debug.Log($"[BossZeus] Referencias — ball: {(ball != null ? "OK" : "NULL")} | jugador: {(jugador != null ? "OK" : "NULL")} | ladoJugador: {(ladoJugador != null ? "OK" : "NULL")} | centroMesa: {(centroMesa != null ? "OK" : "NULL")}");
+        System.IO.File.AppendAllText(path, $"[{System.DateTime.Now:HH:mm:ss.fff}] {metodo} <<< SALE <<<\n");
+    }
+
+    /// <summary>
+    /// Espera a que la inicialización diferida de Zeus termine y luego ejecuta
+    /// IniciarCombate(). Evita bloqueos del hilo principal si el combate se pide
+    /// antes de que la inicialización difiera haya completado su primer frame.
+    /// </summary>
+    private System.Collections.IEnumerator EsperarInicializacionYIniciarCombate()
+    {
+        int maxEspera = 10;
+        int esperados = 0;
+        while (!inicializadoUnaVez && esperados < maxEspera)
+        {
+            esperados++;
+            yield return null;
+        }
+        if (inicializadoUnaVez)
+        {
+            IniciarCombate();
+        }
     }
 
     // ──────────────────────────────────────────────
@@ -1105,6 +1149,24 @@ public class BossZeus : BossController
     /// </summary>
     public void ActivarHabilidadDesdeGolpeCPU(float velocidadXAntesDelGolpe)
     {
+        // Asegurar que el GameObject y el script estén activos antes de operar
+        if (!gameObject.activeSelf)
+        {
+            gameObject.SetActive(true);
+        }
+        if (!enabled)
+        {
+            enabled = true;
+        }
+
+        // Asegurar que ball tenga referencia (puede no estar asignada en el Inspector)
+        if (ball == null)
+        {
+            ball = GameManager.Instance?.ball ?? FindObjectOfType<PingPongBall>();
+        }
+
+        // === CHIVATO DE ENTRADA ===
+        Debug.Log("[DIAGNOSTICO ZEUS] ¡ActivarHabilidadDesdeGolpeCPU llamado! combateActivo: " + combateActivo + " | ball es null: " + (ball == null) + " | estrellaEsperando: " + estrellaEsperandoGolpe);
         // ── DIAGNÓSTICO TEMPORAL: inicio del método ──
         Rigidbody rbDiag = ball != null ? ball.GetComponent<Rigidbody>() : null;
         Debug.Log($"[DIAG BOSSZEUS] ActivarHabilidadDesdeGolpeCPU() llamado | X_ANTES={velocidadXAntesDelGolpe:F2} | X_DESPUES={(rbDiag != null ? rbDiag.linearVelocity.x.ToString("F2") : "N/A")} | estrellaEsperandoGolpe={estrellaEsperandoGolpe} | teletransporteEnProgreso={teletransporteEnProgreso} | estado={estado} | velocidad={(rbDiag != null ? rbDiag.linearVelocity.ToString() : "N/A")} | combateActivo={combateActivo}");
@@ -1198,5 +1260,8 @@ public class BossZeus : BossController
     {
         base.DesactivarHabilidad();
         Debug.Log("[BossZeus] DesactivarHabilidad() ejecutado.");
+        sonidoRayoReproduciendo = false;
     }
 }
+
+

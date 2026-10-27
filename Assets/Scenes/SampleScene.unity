@@ -2470,7 +2470,7 @@ PrefabInstance:
     - target: {fileID: -7511558181221131132, guid: f8f688fe4fb69c145a117a5d8ca35f4f, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: -6478536213147159724, guid: 88428902f677b6c449d29e1a6c00a51d, type: 3}
+      objectReference: {fileID: 2100000, guid: 86fc6bcff328e1f4f985f001792cf131, type: 2}
     - target: {fileID: 919132149155446097, guid: f8f688fe4fb69c145a117a5d8ca35f4f, type: 3}
       propertyPath: m_Name
       value: untitled2
@@ -3856,6 +3856,18 @@ MonoBehaviour:
         m_TargetAssemblyTypeName: BossManager, Assembly-CSharp
         m_MethodName: StartBossBattle
         m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+      - m_Target: {fileID: 1872100577}
+        m_TargetAssemblyTypeName: UnityEngine.GameObject, UnityEngine
+        m_MethodName: SetActive
+        m_Mode: 6
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
@@ -10452,6 +10464,8 @@ MonoBehaviour:
   rotacionMirageCpu: {x: 90, y: 0, z: 0}
   escalaMirageCpu: {x: 1, y: 1, z: 1}
   combateIniciado: 0
+  iniciandoCombate: 0
+  startBossBattleEnCurso: 0
 --- !u!4 &257652966
 Transform:
   m_ObjectHideFlags: 0
@@ -13074,13 +13088,13 @@ Light:
   serializedVersion: 11
   m_Type: 1
   m_Color: {r: 1, g: 1, b: 1, a: 1}
-  m_Intensity: 2
+  m_Intensity: 1.5
   m_Range: 10
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
   m_CookieSize: 10
   m_Shadows:
-    m_Type: 2
+    m_Type: 1
     m_Resolution: -1
     m_CustomResolution: -1
     m_Strength: 1
@@ -13137,7 +13151,7 @@ Transform:
   m_GameObject: {fileID: 410087039}
   serializedVersion: 2
   m_LocalRotation: {x: 0.40821788, y: -0.23456968, z: 0.10938163, w: 0.8754261}
-  m_LocalPosition: {x: 59.2, y: 42.55, z: 0}
+  m_LocalPosition: {x: 62.3, y: 85.3, z: -93.4}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -18248,7 +18262,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &665665625
 RectTransform:
   m_ObjectHideFlags: 0
@@ -18267,7 +18281,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 4, y: -6.999939}
+  m_AnchoredPosition: {x: 4, y: -6.9999084}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &665665626
@@ -20230,10 +20244,10 @@ MonoBehaviour:
       spriteImagen: {fileID: 0}
       precio: 100
       desbloqueadoPorDefecto: 0
-      idUnico: 
-      tipoDesbloqueo: 0
-      idJefeRequerido: 
-      nombreJefeRequerido: 
+      idUnico: 1
+      tipoDesbloqueo: 1
+      idJefeRequerido: 1
+      nombreJefeRequerido: Colossus
   combateActivo: 0
   derrotado: 0
   gameManager: {fileID: 686527993}
@@ -20274,7 +20288,7 @@ MonoBehaviour:
   forzarDificultadInhumano: 1
   multiplicadorResistenciaInhumano: 2
   cargasBaseResistenciaInhumano: 1
-  transformColliderRaqueta: {fileID: 0}
+  transformColliderRaqueta: {fileID: 214029767}
   puntosParaCentrar: 6
   fraccionAnchoParaCentrar: 0.8
   ejeLateralEsX: 0
@@ -29303,7 +29317,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 0.5}
   m_AnchorMax: {x: 1, y: 0.5}
-  m_AnchoredPosition: {x: 53.000122, y: -207}
+  m_AnchoredPosition: {x: 53.00049, y: -207}
   m_SizeDelta: {x: 250, y: 300}
   m_Pivot: {x: 1, y: 0.5}
 --- !u!1 &1009161915
@@ -43663,6 +43677,7 @@ MonoBehaviour:
   - {fileID: 8300000, guid: aea5941a5f89e674e9e3cd76fc819ec4, type: 3}
   soundHighSpeed: {fileID: 8300000, guid: fe4dd8f82e9935c4fb0c5c7b4c0bfc06, type: 3}
   shieldMarkPrefab: {fileID: 1262952571}
+  bossZeusActivo: 0
 --- !u!4 &1506589458 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: f8f688fe4fb69c145a117a5d8ca35f4f, type: 3}
@@ -45091,7 +45106,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 0}
-  m_AnchoredPosition: {x: -42.03589, y: 85}
+  m_AnchoredPosition: {x: -42.036377, y: 85}
   m_SizeDelta: {x: -40.5812, y: 90}
   m_Pivot: {x: 0.5, y: 0}
 --- !u!114 &1541409801
@@ -47210,7 +47225,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1623219122
 RectTransform:
   m_ObjectHideFlags: 0

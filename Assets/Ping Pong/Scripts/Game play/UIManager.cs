@@ -3,6 +3,7 @@ using TMPro;
 using System.Collections;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using System.IO;
 
 public class UIManager : MonoBehaviour, IPointerEnterHandler
 {
@@ -221,8 +222,13 @@ public class UIManager : MonoBehaviour, IPointerEnterHandler
         {
             BossManager.bloquearMenuJefes = true;
             BossManager.Instance.combateIniciado = true;
-            BossManager.Instance.SalirModoHistoriaJefes();
-            if (panelBosses != null) panelBosses.SetActive(false);
+            // No llamar a SalirModoHistoriaJefes() si ya hay batalla en curso:
+            // evita reseteo de banderas y parpadeo del panel de jefes durante
+            // la transición de StartBossBattle() → IniciarPartida().
+            if (!BossManager.Instance.BatallaIniciada && !BossManager.Instance.startBossBattleEnCurso)
+            {
+                BossManager.Instance.SalirModoHistoriaJefes();
+            }
         }
         if (panel == panelMenuPrincipal && musicaSource != null)
         {
@@ -232,7 +238,6 @@ public class UIManager : MonoBehaviour, IPointerEnterHandler
         if (panel == panelMenuPrincipal && audioSourceUI != null && sonidoCerrarMenu != null) audioSourceUI.PlayOneShot(sonidoCerrarMenu, volumenCerrar);
         if (panel != panelMenuPrincipal && panel != null && audioSourceUI != null && sonidoAbrirMenu != null) audioSourceUI.PlayOneShot(sonidoAbrirMenu, volumenAbrir);
         panelHUD?.SetActive(false);
-        panelBosses?.SetActive(false);
         panelHelp?.SetActive(false);
         panelOptions?.SetActive(false);
         panelMenuPrincipal?.SetActive(false);
@@ -243,13 +248,26 @@ public class UIManager : MonoBehaviour, IPointerEnterHandler
         panelPausa?.SetActive(false);
         panelGameOver?.SetActive(false);
         panelTorneo?.SetActive(false);
-        panelBosses?.SetActive(false);
         panel?.SetActive(true);
         if (panelHelp != null && panel != panelHelp) panelHelp.SetActive(false);
         if (panelOptions != null && panel != panelOptions) panelOptions.SetActive(false);
-        if (panel == panelHUD) { if (panelBosses != null) panelBosses.SetActive(false); }
+        if (panel != panelBosses)
+            StartCoroutine(OcultarPanelJefesSeguroUI());
         // El widget solo vive con la tienda; en el resto se retrae.
         ActualizarVisibilidadWidgetTienda();
+    }
+
+    /// <summary>
+    /// Oculta el panel de jefes después de un frame para evitar el error de
+    /// sincronización 'IsInSyncWithParentSerializedObject' del editor.
+    /// </summary>
+    System.Collections.IEnumerator OcultarPanelJefesSeguroUI()
+    {
+        yield return null;
+        if (panelBosses != null) panelBosses.SetActive(false);
+        GameObject panelJefesGO = GameObject.Find("Panel_Jefes");
+        if (panelJefesGO != null)
+            panelJefesGO.SetActive(false);
     }
 
     // -------------------------------------------------------
@@ -466,8 +484,12 @@ public class UIManager : MonoBehaviour, IPointerEnterHandler
     public void OnClickVolverAlMenu()
     {
         BossManager.bloquearMenuJefes = false;
-        if (BossManager.Instance != null) BossManager.Instance.combateIniciado = false;
-        SubirVolumenMusica(volumenMusica, 0.5f);
+        if (BossManager.Instance != null) { BossManager.Instance.combateIniciado = false; BossManager.Instance.iniciandoCombate = false; BossManager.Instance.enabled = true; }
+        GameObject.Find("Panel_Jefes")?.SetActive(false);
+        if (panelBosses != null) panelBosses.SetActive(false);
+        GameObject pb = GameObject.Find("Panel_Jefes");
+        if (pb != null) pb.SetActive(false);
+        if (panelBosses != null) panelBosses.SetActive(false);
         GameManager.Instance?.DetenerVolcanes();
         // Al regresar al menú desde un combate: ciclo de vida OFF de jefes.
         BossManager bm = BossManager.Instance != null ? BossManager.Instance : FindObjectOfType<BossManager>();
@@ -495,8 +517,14 @@ public class UIManager : MonoBehaviour, IPointerEnterHandler
     /// </summary>
     public void IniciarPartida(Dificultad d)
     {
+        string metodo = "UIManager.IniciarPartida";
+        string path = Application.persistentDataPath + "/crash_debug.txt";
+        System.IO.File.AppendAllText(path, $"[{System.DateTime.Now:HH:mm:ss.fff}] {metodo} >>> ENTRA >>> dificultad={d}\n");
         BajarVolumenMusica(0f, 0.4f);
-        if (MapManager.Instance != null && !MapManager.Instance.PuedeJugarMapaEnfocado()) { return; }
+        // Saltar la comprobación de mapa bloqueado cuando es un combate de jefe
+        // (JefeActivo ya está asignado por StartBossBattle antes de llamar aquí).
+        bool esCombateDeJefe = BossManager.Instance != null && BossManager.Instance.JefeActivo != null;
+        if (!esCombateDeJefe && MapManager.Instance != null && !MapManager.Instance.PuedeJugarMapaEnfocado()) { return; }
         Debug.Log($"[UIManager] 3. IniciarPartida({d})");
         if (BossManager.Instance != null) { BossManager.bloquearMenuJefes = true; BossManager.Instance.combateIniciado = true; BossManager.Instance.SalirModoHistoriaJefes(); }
         if (panelBosses != null) panelBosses.SetActive(false);
@@ -507,6 +535,7 @@ public class UIManager : MonoBehaviour, IPointerEnterHandler
             GameManager.Instance.IniciarPartida();
         }
         MostrarPanel(panelHUD);
+        System.IO.File.AppendAllText(path, $"[{System.DateTime.Now:HH:mm:ss.fff}] {metodo} <<< SALE <<<\n");
     }
 
     // -------------------------------------------------------

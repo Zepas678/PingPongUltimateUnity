@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 
 /// <summary>
 /// Administra la selección de jefes desde la interfaz.
@@ -81,6 +82,7 @@ public class BossManager : MonoBehaviour
     void Awake()
     {
         this.enabled = true;
+        GameObject.Find("Panel_Jefes")?.SetActive(false);
         try
         {
             // TODO RASTREO-CLD: temporal. Quitar al estabilizar.
@@ -107,7 +109,6 @@ public class BossManager : MonoBehaviour
 
     void OnEnable()
     {
-        if (combateIniciado) return;
         this.enabled = true;
         try
         {
@@ -130,17 +131,30 @@ public class BossManager : MonoBehaviour
 
     void Update()
     {
-        if (bloquearMenuJefes && UIManager.Instance != null && UIManager.Instance.panelBosses != null)
-            UIManager.Instance.panelBosses.SetActive(false);
         // TODO RASTREO-CLD: temporal, solo primeros 10 frames para no spamear.
         if (Time.frameCount <= 10)
             Debug.Log($"[RASTREO CLD] Método llamado: Update | currentBossIndex actual: {currentBossIndex} | frame: {Time.frameCount}");
+    }
+
+    /// <summary>
+    /// Oculta el panel de jefes de forma segura después de un frame, evitando
+    /// el error de sincronización 'IsInSyncWithParentSerializedObject' del editor.
+    /// </summary>
+    System.Collections.IEnumerator OcultarPanelJefesSeguro()
+    {
+        yield return null;
+        if (UIManager.Instance != null && UIManager.Instance.panelBosses != null)
+            UIManager.Instance.panelBosses.SetActive(false);
+        GameObject panelJefesGO = GameObject.Find("Panel_Jefes");
+        if (panelJefesGO != null)
+            panelJefesGO.SetActive(false);
     }
 
     // ──────────────────────────────────────────────
     void Start()
     {
         this.enabled = true;
+        StartCoroutine(OcultarPanelJefesSeguro());
         try
         {
             // Forzar índice al primer jefe (Zeus) desde el arranque.
@@ -407,6 +421,14 @@ public class BossManager : MonoBehaviour
     /// </summary>
     public void EntrarModoHistoriaJefes()
     {
+        // ■ GUARDIA: no entrar al modo historia jefes si ya hay una batalla en curso.
+        // Evita que el panel de jefes se reactive (parpadeo) durante la transición
+        // de StartBossBattle() → IniciarPartida() → IniciarCombate().
+        if (batallaIniciada || startBossBattleEnCurso || combateIniciado)
+        {
+            Debug.Log("[BossManager] EntrarModoHistoriaJefes() bloqueado: batalla en curso. Se ignora.");
+            return;
+        }
         combateIniciado = false;
         bloquearMenuJefes = false;
         enabled = true;
@@ -617,8 +639,15 @@ public class BossManager : MonoBehaviour
         enabled = false;
         bloquearMenuJefes = false;
         combateIniciado = false;
+        iniciandoCombate = false;
+        // ■ NO resetear batallaIniciada y startBossBattleEnCurso aquí:
+        // son gestionadas exclusivamente por StartBossBattle() y su finally.
+        // Resetearlas desde SalirModoHistoriaJefes() durante el flujo de inicio
+        // de partida deja la puerta abierta a que el panel de jefes se reactive
+        // (parpadeo) mientras StartBossBattle() sigue ejecutando.
         if (bossInfoCard != null) bossInfoCard.SetActive(false);
         if (panelInfoJefe != null) panelInfoJefe.SetActive(false);
+        StartCoroutine(OcultarPanelJefesSeguro());
     }
     public void SeleccionarPrimerJefeYRefrescar()
     {
@@ -748,27 +777,66 @@ public class BossManager : MonoBehaviour
     /// Reutiliza el flujo normal de una partida VS CPU: selecciona el mapa
     /// con MapManager y llama a UIManager.IniciarPartida() con la dificultad del jefe.
     /// </summary>
+    /// <summary>
+    /// Indica que un combate de jefe está en proceso de arranque.
+    /// Evita bucles infinitos entre StartBossBattle y IniciarCombate de los jefes.
+    /// </summary>
+    public bool iniciandoCombate = false;
+
+    /// <summary>
+    /// Flag de reentrada exclusivo de StartBossBattle. No se resetea por
+    /// SalirModoHistoriaJefes ni por UIManager.IniciarPartida, solo al final
+    /// de StartBossBattle, evitando recursión entre StartBossBattle y
+    /// IniciarCombate de los jefes.
+    /// </summary>
+    public bool startBossBattleEnCurso = false;
+
+    /// <summary>
+    /// Bandera de bloqueo estricto: garantiza que StartBossBattle se ejecute
+    /// una sola vez y rechace cualquier clic duplicado o reentrada mientras
+    /// el combate arranca.
+    /// </summary>
+    private bool batallaIniciada = false;
+
+    /// <summary>Propiedad pública de solo lectura para consultar si una batalla de jefe está en curso.</summary>
+    public bool BatallaIniciada => batallaIniciada;
+
     public void StartBossBattle()
     {
-        combateIniciado = true;
-        bloquearMenuJefes = true;
-        if (UIManager.Instance != null && UIManager.Instance.panelBosses != null)
-            UIManager.Instance.panelBosses.SetActive(false);
-        // Combate de jefe = partida real: GameplayCamera + BossManager/controles.
-        GameManager.AsegurarGameplayCamera();
-        // Ocultar el panel de jefes al iniciar el combate + salir del demo.
-        if (UIManager.Instance != null && UIManager.Instance.panelBosses != null)
-            UIManager.Instance.panelBosses.SetActive(false);
-        if (MainMenuBackgroundManager.Instance != null)
-            MainMenuBackgroundManager.Instance.SalirDelDemoHaciaPartida();
-        if (bosses == null || bosses.Count == 0) return;
+        string metodo = "BossManager.StartBossBattle";
+        string path = Application.persistentDataPath + "/crash_debug.txt";
+        System.IO.File.AppendAllText(path, $"[{System.DateTime.Now:HH:mm:ss.fff}] {metodo} >>> ENTRA >>> combateIniciado={combateIniciado}, iniciandoCombate={iniciandoCombate}, startBossBattleEnCurso={startBossBattleEnCurso}, batallaIniciada={batallaIniciada}\n");
+        if (startBossBattleEnCurso || batallaIniciada)
+        {
+            System.IO.File.AppendAllText(path, $"[{System.DateTime.Now:HH:mm:ss.fff}] {metodo} <<< SALE (duplicado/bloqueado) <<<\n");
+            Debug.Log("[BossManager] StartBossBattle() ya está en curso o batalla iniciada; se ignora la llamada duplicada.");
+            return;
+        }
+        // ■ MARCA INICIAL: batallaIniciada es lo PRIMERO que se evalúa y se marca true
+        // antes de invocar cualquier método externo del jefe. Rompe la dependencia
+        // circular BossManager.StartBossBattle() ↔ BossZeus.StartBossBattle().
+        batallaIniciada = true;
+        startBossBattleEnCurso = true;
+        try
+        {
+            iniciandoCombate = true;
+            combateIniciado = true;
+            bloquearMenuJefes = true;
+            CancelInvoke();
+            StopAllCoroutines();
+            StartCoroutine(OcultarPanelJefesSeguro());
+            // Combate de jefe = partida real: GameplayCamera + BossManager/controles.
+            GameManager.AsegurarGameplayCamera();
+            if (MainMenuBackgroundManager.Instance != null)
+                MainMenuBackgroundManager.Instance.SalirDelDemoHaciaPartida();
+            if (bosses == null || bosses.Count == 0) return;
 
-        BossData jefe = bosses[currentBossIndex];
-        if (jefe == null) return;
+            BossData jefe = bosses[currentBossIndex];
+            if (jefe == null) return;
 
-        // Verificación en consola: confirma que el botón COMBATIR ejecuta el evento
-        // y qué jefe/mapa intenta cargar (índice, id, nombre, mapa).
-        Debug.Log($"[BossManager] COMBATIR presionado | indice={currentBossIndex} id={jefe.id} nombre='{NormalizarNombreJefe(jefe.nombre)}' mapa='{(!string.IsNullOrWhiteSpace(jefe.nombreMapa) ? jefe.nombreMapa : "(defecto)")}' bloqueado={!EsJefeDesbloqueado(jefe)}");
+            // Verificación en consola: confirma que el botón COMBATIR ejecuta el evento
+            // y qué jefe/mapa intenta cargar (índice, id, nombre, mapa).
+            Debug.Log($"[BossManager] COMBATIR presionado | indice={currentBossIndex} id={jefe.id} nombre='{NormalizarNombreJefe(jefe.nombre)}' mapa='{(!string.IsNullOrWhiteSpace(jefe.nombreMapa) ? jefe.nombreMapa : "(defecto)")}' bloqueado={!EsJefeDesbloqueado(jefe)}");
 
         // Diagnóstico de identidad: imprime EXACTAMENTE el jefe que llega al botón del
         // menú. Si aquí no aparece "Mirage", el problema está en la lista 'bosses'
@@ -856,6 +924,20 @@ public class BossManager : MonoBehaviour
         UIManager.Instance.IniciarPartida(dificultadCombate);
         Debug.Log("[BossManager] 3. UIManager.IniciarPartida() llamado");
 
+        // ■ RE-ASSERT: JefeActivo se perdió en SalirModoHistoriaJefes()
+        // (llamado desde UIManager.IniciarPartida). Re-asignarlo para que
+        // GameManager.RegisterPoint() pueda invocar OnPuntoDelJugador() del jefe.
+        JefeActivo = ResolverControllerDelJefeActivo(jefe);
+
+        // ■ RE-ASSERT: proteger las banderas contra reseteo por SalirModoHistoriaJefes()
+        // llamado desde UIManager.IniciarPartida() o MostrarPanel(panelHUD).
+        // Sin esto, batallaIniciada/startBossBattleEnCurso quedan en false y
+        // cualquier llamada posterior a EntrarModoHistoriaJefes() reactiva el panel.
+        batallaIniciada = true;
+        startBossBattleEnCurso = true;
+        combateIniciado = true;
+        bloquearMenuJefes = true;
+
         // 3. Desactivar los scripts de los jefes que NO son el seleccionado.
         //    Evita que Zeus (u otro jefe) ejecute sus habilidades por error
         //    durante el combate de otro jefe. El jefe seleccionado se conserva.
@@ -903,6 +985,8 @@ public class BossManager : MonoBehaviour
 
             if (colossusController != null)
             {
+                if (!colossusController.gameObject.activeSelf)
+                    colossusController.gameObject.SetActive(true);
                 colossusController.enabled = true;
                 colossusController.IniciarCombate();
 
@@ -929,6 +1013,8 @@ public class BossManager : MonoBehaviour
                 // que ese BossData también se reconozca como Mirage.
                 SincronizarIdentidadJefeMirage(jefe, mirageController);
 
+                if (!mirageController.gameObject.activeSelf)
+                    mirageController.gameObject.SetActive(true);
                 mirageController.enabled = true;
                 mirageController.IniciarCombate();
 
@@ -956,6 +1042,15 @@ public class BossManager : MonoBehaviour
             {
                 Debug.LogWarning($"[BossManager] No se encontró en la escena un BossController para el jefe '{jefe.nombre}'.");
             }
+        }
+        }  // cierra el bloque try de StartBossBattle
+        finally
+        {
+            startBossBattleEnCurso = false;
+            batallaIniciada = false;
+            string metodoSalida = "BossManager.StartBossBattle";
+            string pathSalida = Application.persistentDataPath + "/crash_debug.txt";
+            System.IO.File.AppendAllText(pathSalida, $"[{System.DateTime.Now:HH:mm:ss.fff}] {metodoSalida} <<< SALE <<< startBossBattleEnCurso={startBossBattleEnCurso}\n");
         }
     }
 

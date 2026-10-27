@@ -438,7 +438,7 @@ public class MainMenuBackgroundManager : MonoBehaviour
                 gm.golpeRaquetaJugador != null ? gm.golpeRaquetaJugador.transform : null
             }
             : new Transform[0];
-        string[] nombresVisuales = { "JefeVisual_CPU", "ZeusVisual_CPU" };
+        string[] nombresVisuales = { "JefeVisual_CPU", "ZeusVisual_CPU", "colosus", "colossus" };
         foreach (Transform raiz in raices)
         {
             if (raiz == null) continue;
@@ -446,6 +446,16 @@ public class MainMenuBackgroundManager : MonoBehaviour
             {
                 Transform hijo = raiz.Find(n);
                 if (hijo != null)
+                {
+                    try { Destroy(hijo.gameObject); } catch (System.Exception) { }
+                }
+            }
+            // También destruir cualquier hijo cuyo nombre contenga colosus/colossus (skin de Blender).
+            foreach (Transform hijo in raiz)
+            {
+                if (hijo == null) continue;
+                string nombre = hijo.name.ToLowerInvariant();
+                if (nombre.Contains("colosus") || nombre.Contains("colossus"))
                 {
                     try { Destroy(hijo.gameObject); } catch (System.Exception) { }
                 }

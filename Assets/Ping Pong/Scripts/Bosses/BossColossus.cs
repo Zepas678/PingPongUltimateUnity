@@ -26,7 +26,17 @@ public class BossColossus : BossController
 
     private void Awake()
     {
-        Debug.Log($"[BossColossus Debug] Awake ejecutado. Objeto activo: {gameObject.activeInHierarchy}");
+        string escena = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        bool enContextoJefe = BossManager.Instance != null || escena.Contains("Boss");
+
+        Debug.Log($"[BossColossus Debug] Awake ejecutado. Objeto activo: {gameObject.activeInHierarchy} | scene={escena} | enContextoJefe={enContextoJefe}");
+
+        if (!enContextoJefe)
+        {
+            Debug.Log("[BossColossus] Fuera de contexto de jefe. No se registra como instancia y se desactiva.");
+            this.enabled = false;
+            return;
+        }
 
         // Resolver la raqueta lo antes posible para que GuardarEscalaOriginal() y
         // toda la lógica de escala/rotación tengan referencia válida en Start().
@@ -41,6 +51,18 @@ public class BossColossus : BossController
         // que la skin colosus se oculte únicamente en modos sin jefe activo.
     }
 
+    void OnDisable()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+            Debug.Log("[BossColossus] OnDisable: Instance limpiado.");
+        }
+        combateActivo = false;
+    }
+
+    // ──────────────────────────────
+    // Fin OnDisable (OnDestroy ya existe en la línea 2113 y limpia Instance)
     // ──────────────────────────────────────────────
     // Configuración: Modo Fortaleza
     // ──────────────────────────────────────────────
@@ -432,6 +454,17 @@ public class BossColossus : BossController
         golpesEpicosAbsorbidosEnFase = 0;
         estado = EstadoColossus.Normal;
 
+        Instance = this;
+
+        // Desactivar los renderers del GameObject jefe en la jerarquía durante el
+        // combate: la skin visual vive solo como hijo de la raqueta CPU. Así evitamos
+        // ver 2 raquetas (la del jefe en escena + la skin en la raqueta CPU).
+        var renderersJefe = GetComponentsInChildren<Renderer>(true);
+        foreach (var r in renderersJefe)
+        {
+            if (r != null) r.enabled = false;
+        }
+
         // Colossus SIEMPRE combate en la dificultad máxima: forzar el perfil de
         // IA del CPU (CPUControl) a Inhumano y persistir
         // GameManager.dificultadSeleccionada para que ResetRound/RestartGame no
@@ -468,12 +501,29 @@ public class BossColossus : BossController
         LimpiarEfectoOndaActual();
         estadoOnda = EstadoOndaDeChoque.Listo;
 
+        // Resetear la escala guardada ANTES de restaurar, para que la raqueta
+        // vuelva a su tamaño base y no persista el coloso.
+        escalaOriginalGuardada = false;
+        escalaBaseCalculada = false;
+
         // Restaurar la escala original de la raqueta (null-safe: no hace nada
         // si no hay raqueta resuelta o el combate se interrumpió antes).
         RestaurarEscalaRaqueta();
 
+        // Reactivar los renderers del GameObject jefe en la jerarquía (se habían
+        // desactivado al iniciar el combate para evitar ver 2 raquetas).
+        var renderersJefe = GetComponentsInChildren<Renderer>(true);
+        foreach (var r in renderersJefe)
+        {
+            if (r != null) r.enabled = true;
+        }
+
+        // Eliminar la skin visual de Colossus (SkinRoot / modelo colosus) y
+        // reactivar la malla normal de la raqueta CPU para evitar solapamientos
+        // en VS CPU, Torneo, etc.
+        DesactivarVisualesJefeParaModoNormal();
+
         // Reiniciar sistemas de crecimiento e inmunidad para la próxima batalla.
-        escalaBaseCalculada = false;
         escalaBaseAcumulada = Vector3.zero;
         rebotesResistenciaRestantes = 0;
         ultimoPuntajeJugadorObservado = -1;
@@ -676,7 +726,12 @@ public class BossColossus : BossController
         Debug.Log($"[BossColossus] Onda de Choque disparada | cooldown={cooldownOndaDeChoque}s | impulso=x{multiplicadorImpulsoOnda}.");
 
         // 3. Gestión de recarga (cooldown) de la habilidad.
-        StartCoroutine(CorutinaRecargaOnda());
+        // Solo iniciar coroutine si el GameObject está activo (evita error al
+        // iniciar combates tras volver del menú donde el objeto puede estar inactivo).
+        if (gameObject.activeInHierarchy)
+            StartCoroutine(CorutinaRecargaOnda());
+        else
+            estadoOnda = EstadoOndaDeChoque.Listo;
     }
 
     /// <summary>
@@ -2083,6 +2138,13 @@ public class BossColossus : BossController
 
     private void OnDestroy()
     {
+        // Limpiar la instancia estática para evitar referencias fantasma
+        if (Instance == this)
+        {
+            Instance = null;
+            Debug.Log("[BossColossus] OnDestroy: Instance limpiado.");
+        }
+
         // Destruir la instancia dinámica de la skin si existe (evita basura en memoria)
         if (instanciaSkinActual != null)
         {

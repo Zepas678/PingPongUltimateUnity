@@ -31,9 +31,30 @@ public class BossMirage : BossController
     public static BossMirage Instance { get; private set; }
     private void Awake()
     {
+        string escena = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        bool enContextoJefe = BossManager.Instance != null || escena.Contains("Boss");
+
+        if (!enContextoJefe)
+        {
+            Debug.Log("[BossMirage] Fuera de contexto de jefe. No se registra como instancia y se desactiva.");
+            this.enabled = false;
+            return;
+        }
+
         Instance = this;
         ultimoEspejismoTiempo = -999f;
     }
+
+    void OnDisable()
+    {
+        if (Instance == this)
+        {
+            Instance = null;
+            Debug.Log("[BossMirage] OnDisable: Instance limpiado.");
+        }
+        combateActivo = false;
+    }
+
     public override void IniciarCombate()
     {
         base.IniciarCombate();
@@ -276,5 +297,10 @@ public class BossMirage : BossController
     private void OnDestroy()
     {
         LimpiarClones();
+        if (Instance == this)
+        {
+            Instance = null;
+            Debug.Log("[BossMirage] OnDestroy: Instance limpiado.");
+        }
     }
 }

@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using System.IO;
 
 /// <summary>
 /// Maneja la lógica de puntos del juego de ping pong.
@@ -597,6 +598,9 @@ public class GameManager : MonoBehaviour
     // -------------------------------------------------------
     public void IniciarPartida()
     {
+        string metodo = "GameManager.IniciarPartida";
+        string path = Application.persistentDataPath + "/crash_debug.txt";
+        System.IO.File.AppendAllText(path, $"[{System.DateTime.Now:HH:mm:ss.fff}] {metodo} >>> ENTRA >>>\n");
         AsegurarGameplayCamera();
         // Fuera de torneo: quitar skin de torneo y poner la de tienda/perfil.
         if (SkinManager.Instance != null) SkinManager.Instance.RestaurarSkinTienda();
@@ -627,6 +631,7 @@ public class GameManager : MonoBehaviour
 
         if (ball != null)
             ball.ResetBall();
+        System.IO.File.AppendAllText(path, $"[{System.DateTime.Now:HH:mm:ss.fff}] {metodo} <<< SALE <<<\n");
     }
 
     // -------------------------------------------------------

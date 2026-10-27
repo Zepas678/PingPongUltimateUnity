@@ -60,6 +60,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -4683669308469848369, guid: bf30b1d79f7ae9c448623c8ebea3920c, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 18cafd56677c30342bbe9f5ad7d38667, type: 2}
     - target: {fileID: -4096120871940991593, guid: bf30b1d79f7ae9c448623c8ebea3920c, type: 3}
       propertyPath: m_LocalPosition.x
       value: -137
@@ -84,6 +88,10 @@ PrefabInstance:
       propertyPath: m_LocalPosition.z
       value: 164.2
       objectReference: {fileID: 0}
+    - target: {fileID: -1990968323811559735, guid: bf30b1d79f7ae9c448623c8ebea3920c, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 5b38474d02af60d43babeba992b028a8, type: 2}
     - target: {fileID: 919132149155446097, guid: bf30b1d79f7ae9c448623c8ebea3920c, type: 3}
       propertyPath: m_Name
       value: MapaSpaceV1
@@ -108,6 +116,14 @@ PrefabInstance:
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: 0f225cb83fb234a47b5bc4ad4688f999, type: 2}
+    - target: {fileID: 8100320773420232829, guid: bf30b1d79f7ae9c448623c8ebea3920c, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 56829993b5550544b940bfd6c18c6b02, type: 2}
+    - target: {fileID: 8730303016566787287, guid: bf30b1d79f7ae9c448623c8ebea3920c, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 29d75cf4b1bdad0489ec2d40a37956cd, type: 2}
     - target: {fileID: 9179017853419834167, guid: bf30b1d79f7ae9c448623c8ebea3920c, type: 3}
       propertyPath: m_LocalPosition.x
       value: -156

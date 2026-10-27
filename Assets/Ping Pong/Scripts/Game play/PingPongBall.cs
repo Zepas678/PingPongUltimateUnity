@@ -53,6 +53,8 @@ public class PingPongBall : MonoBehaviour
     private bool          highSpeedSoundPlayed = false;
     [SerializeField]
     private GameObject shieldMarkPrefab;
+    /// <summary>Indica si BossZeus está actualmente en combate (activo y combateActivo == true).</summary>
+    public bool bossZeusActivo = false;
 
     // -------------------------------------------------------
     void Start()
@@ -284,16 +286,27 @@ public class PingPongBall : MonoBehaviour
     /// <returns>Nombre del jefe notificado, o null si no hay ningún jefe activo.</returns>
     private string NotificarGolpeJefeActivoCPU(float velocidadXAntesDelGolpe, float velocidadActual)
     {
-        // 1. BossZeus: existe, está habilitado y su combate está en curso.
-        BossZeus[] zeusEnEscena = FindObjectsOfType<BossZeus>(true);
-        for (int i = 0; i < zeusEnEscena.Length; i++)
+        // 1. BossZeus: forzar detección solo si la instancia existe y el combate está activo.
+        BossZeus zeus = BossZeus.Instance;
+        if (zeus == null)
         {
-            BossZeus z = zeusEnEscena[i];
-            if (z == null) continue;
-            if (!z.enabled || !z.combateActivo) continue;
-
-            z.ActivarHabilidadDesdeGolpeCPU(velocidadXAntesDelGolpe);
-            return z.gameObject.name;
+            // Respaldo: buscar en escena si el Singleton se perdió (p. ej. tras menú).
+            zeus = FindObjectOfType<BossZeus>(true);
+        }
+        if (zeus != null && zeus.combateActivo)
+        {
+            try
+            {
+                bossZeusActivo = true;
+                zeus.ActivarHabilidadDesdeGolpeCPU(velocidadXAntesDelGolpe);
+                Debug.Log("[PingPongBall] Notificado a BossZeus desde golpe CPU.");
+                return zeus.gameObject.name;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("[PingPongBall] Excepción notificando a BossZeus: " + e.Message);
+                bossZeusActivo = false;
+            }
         }
 
         // 2. BossColossus: existe, está habilitado y su combate está en curso.
@@ -304,8 +317,15 @@ public class PingPongBall : MonoBehaviour
             if (c == null) continue;
             if (!c.enabled || !c.combateActivo) continue;
 
-            c.ActivarHabilidadDesdeGolpeCPU(velocidadActual);
-            return c.gameObject.name;
+            try
+            {
+                c.ActivarHabilidadDesdeGolpeCPU(velocidadActual);
+                return c.gameObject.name;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("[PingPongBall] Excepción notificando a BossColossus: " + e.Message);
+            }
         }
 
         // 2. BossMirage: existe, está habilitado y su combate está en curso.
@@ -316,9 +336,16 @@ public class PingPongBall : MonoBehaviour
             if (m == null) continue;
             if (!m.enabled || !m.combateActivo) continue;
 
-            Debug.Log("[PingPongBall] Colision detectada con Raqueta CPU. Notificando a BossMirage...");
-            m.NotificarGolpeCPU();
-            return m.gameObject.name;
+            try
+            {
+                Debug.Log("[PingPongBall] Colision detectada con Raqueta CPU. Notificando a BossMirage...");
+                m.NotificarGolpeCPU();
+                return m.gameObject.name;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("[PingPongBall] Excepción notificando a BossMirage: " + e.Message);
+            }
         }
 
         // 3. Compatibilidad genérica: cualquier otro BossController activo.
