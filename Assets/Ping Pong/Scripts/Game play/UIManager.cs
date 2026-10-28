@@ -222,9 +222,6 @@ public class UIManager : MonoBehaviour, IPointerEnterHandler
         {
             BossManager.bloquearMenuJefes = true;
             BossManager.Instance.combateIniciado = true;
-            // No llamar a SalirModoHistoriaJefes() si ya hay batalla en curso:
-            // evita reseteo de banderas y parpadeo del panel de jefes durante
-            // la transición de StartBossBattle() → IniciarPartida().
             if (!BossManager.Instance.BatallaIniciada && !BossManager.Instance.startBossBattleEnCurso)
             {
                 BossManager.Instance.SalirModoHistoriaJefes();
@@ -255,6 +252,50 @@ public class UIManager : MonoBehaviour, IPointerEnterHandler
             StartCoroutine(OcultarPanelJefesSeguroUI());
         // El widget solo vive con la tienda; en el resto se retrae.
         ActualizarVisibilidadWidgetTienda();
+
+        // Refrescar el preview 3D de skins cada vez que se muestra el panel de skins,
+        // para asegurar que el modelo gira tras volver de una partida.
+        if (panel == panelSkins)
+        {
+            SkinManager.Instance?.RefrescarPreview();
+            RepararBtnHabilidad();
+        }
+    }
+
+    /// <summary>
+    /// Repara el botón Btn_Habilidades: ApagarPorNombre("Habilidad") en
+    /// MainMenuBackgroundManager deshabilita TODOS sus componentes (Image, Button,
+    /// Event Trigger) y Panel_Skins inicia inactivo, así que MenuTabManager no
+    /// recibe callbacks. UIManager está siempre activo y usa
+    /// Resources.FindObjectsOfTypeAll para encontrar el botón incluso si está
+    /// inactivo o desactivado en la jerarquía.
+    /// </summary>
+    public void RepararBtnHabilidad()
+    {
+        GameObject[] todos;
+        try { todos = Resources.FindObjectsOfTypeAll<GameObject>(); }
+        catch (System.Exception) { return; }
+        if (todos == null) return;
+        foreach (GameObject go in todos)
+        {
+            if (go == null || !go.name.Equals("Btn_Habilidades", System.StringComparison.OrdinalIgnoreCase)) continue;
+            // Reactivar el GameObject si estuviera inactivo.
+            if (!go.activeSelf) go.SetActive(true);
+            // Habilitar TODOS los componentes MonoBehaviour (Image, Button, Event Trigger, etc.)
+            var comps = go.GetComponents<MonoBehaviour>();
+            foreach (var c in comps)
+            {
+                if (c == null || c is UIManager || c is MenuTabManager) continue;
+                try { c.enabled = true; }
+                catch (System.Exception) { }
+            }
+            // Si el Image no tiene Sprite, asignar color de fondo visible.
+            var img = go.GetComponent<Image>();
+            if (img != null && img.sprite == null)
+                img.color = new Color(0.2f, 0.6f, 1f, 1f);
+            Debug.Log($"[UIManager] Btn_Habilidades reparado: Image={img?.enabled}, Button={go.GetComponent<Button>()?.enabled}");
+            return;
+        }
     }
 
     /// <summary>
@@ -316,6 +357,7 @@ public class UIManager : MonoBehaviour, IPointerEnterHandler
     public void OnClickSkins()
     {
         MostrarPanel(panelSkins);
+        SkinManager.Instance?.RefrescarPreview();
     }
 
     public void OnClickModoVsCPU_DesdeSkins()
@@ -504,8 +546,15 @@ public class UIManager : MonoBehaviour, IPointerEnterHandler
         }
 
         MostrarPanel(panelMenuPrincipal);
+        // Refrescar el preview 3D de skins al volver al menú (por si el panel de skins
+        // ya estaba abierto o se abre después, evitando que el modelo quede estático).
+        SkinManager.Instance?.RefrescarPreview();
         // Fondo dinámico: mapa aleatorio + demo CPU vs CPU en MenuCamera.
         MainMenuBackgroundManager.Instance?.EntrarAlMenuPrincipal();
+        // Reparar el botón HAB: ApagarPorNombre("Habilidad") deshabilita sus componentes
+        // (Image, Button, Event Trigger) y Panel_Skins inicia inactivo, así que
+        // MenuTabManager no recibe callbacks. UIManager está siempre activo.
+        RepararBtnHabilidad();
     }
 
     /// <summary>
@@ -566,6 +615,11 @@ public class UIManager : MonoBehaviour, IPointerEnterHandler
             practiceUI.HidePracticeUI();
             practiceUI.gameObject.SetActive(false);
         }
+
+        // Refrescar el preview 3D de skins al volver al menú.
+        SkinManager.Instance?.RefrescarPreview();
+        // Reparar el botón HAB (ver comentario en OnClickVolverAlMenu).
+        RepararBtnHabilidad();
     }
 
     public void OnClickReintentar()

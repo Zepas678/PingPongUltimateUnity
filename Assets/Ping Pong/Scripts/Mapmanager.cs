@@ -176,8 +176,30 @@ public class MapManager : MonoBehaviour
             if (EstaDesbloqueado()) return EstadoDesbloqueoMapa.Desbloqueado;
             if (tipoDesbloqueo == TipoDesbloqueoMapa.Jefe)
             {
-                if (MapManager.JefeDerrotado(idJefeRequerido))
+                string nombreBuscar = !string.IsNullOrEmpty(nombreJefeRequerido)
+                    ? nombreJefeRequerido
+                    : idJefeRequerido;
+
+                // Verificación principal: estado real del jefe en BossManager
+                // (RegistrarVictoriaJefe marca derrotado = true en memoria).
+                if (BossManager.Instance != null && BossManager.Instance.EstaJefeDerrotado(nombreBuscar))
                     return EstadoDesbloqueoMapa.PendienteReclamar;
+
+                // Respaldos via PlayerPrefs (varias variantes de nombre).
+                if (MapManager.JefeDerrotado(nombreBuscar))
+                    return EstadoDesbloqueoMapa.PendienteReclamar;
+
+                string sinBoss = nombreBuscar.Replace("Boss", "").Trim();
+                if (!string.IsNullOrEmpty(sinBoss) && MapManager.JefeDerrotado(sinBoss))
+                    return EstadoDesbloqueoMapa.PendienteReclamar;
+
+                if (!nombreBuscar.StartsWith("Boss", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    string conBoss = "Boss" + nombreBuscar;
+                    if (MapManager.JefeDerrotado(conBoss))
+                        return EstadoDesbloqueoMapa.PendienteReclamar;
+                }
+
                 return EstadoDesbloqueoMapa.BloqueadoJefe;
             }
             return EstadoDesbloqueoMapa.BloqueadoPollocoins;

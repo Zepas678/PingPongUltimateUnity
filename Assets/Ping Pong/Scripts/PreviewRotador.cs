@@ -16,13 +16,41 @@ public class PreviewRotador : MonoBehaviour
 
     private GameObject modeloActual;
 
+    void OnEnable()
+    {
+        RecuperarModelo();
+    }
+
     void Update()
     {
-        if (modeloActual == null) return;
+        if (modeloActual == null)
+        {
+            RecuperarModelo();
+            if (modeloActual == null) return;
+        }
         float dt = usarTiempoNoEscalado ? Time.unscaledDeltaTime : Time.deltaTime;
         // Fallback: si el tiempo escalado está pausado, usar no escalado para no congelar.
         if (!usarTiempoNoEscalado && dt <= 0f) dt = Time.unscaledDeltaTime;
         modeloActual.transform.Rotate(Vector3.up, velocidadRotacion * dt, Space.World);
+    }
+
+    /// <summary>
+    /// Intenta recuperar la referencia al modelo 3D entre los hijos del preview.
+    /// Se usa cuando modeloActual se perdió (destruido al cambiar de escena o al entrar a partida).
+    /// </summary>
+    private void RecuperarModelo()
+    {
+        if (modeloActual != null) return;
+        for (int i = 0; i < transform.childCount; i++)
+        {
+            var hijo = transform.GetChild(i);
+            if (hijo != null && hijo.gameObject.activeInHierarchy)
+            {
+                modeloActual = hijo.gameObject;
+                Debug.Log($"[PreviewRotador] Modelo recuperado: {modeloActual.name}");
+                return;
+            }
+        }
     }
 
     /// <summary>

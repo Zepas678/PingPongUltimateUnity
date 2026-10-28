@@ -642,6 +642,20 @@ public class GameManager : MonoBehaviour
     public void IniciarPartidaTorneo()
     {
         AsegurarGameplayCamera();
+        // Limpiar todo el estado de jefes para que no aparezca el panel de jefe
+        // detrás de la partida de torneo (Solo debe mostrarse en Modo Historia).
+        BossManager bm = BossManager.Instance != null ? BossManager.Instance : FindObjectOfType<BossManager>();
+        if (bm != null) bm.SalirModoHistoriaJefes();
+        // Bajar volumen de música al iniciar partida de torneo (como hacen los otros modos).
+        UIManager.Instance?.BajarVolumenMusica(0f, 0.4f);
+        // Cambiar a cámara de gameplay sin tocar jefes (no queremos mostrar panel de jefe en torneo).
+        if (MainMenuBackgroundManager.Instance != null)
+        {
+            if (MainMenuBackgroundManager.Instance.menuCamera != null)
+                MainMenuBackgroundManager.Instance.menuCamera.enabled = false;
+            if (MainMenuBackgroundManager.Instance.gameplayCamera != null)
+                MainMenuBackgroundManager.Instance.gameplayCamera.enabled = true;
+        }
         Debug.Log("[GameManager.IniciarPartidaTorneo] === INICIO ===");
 
         Match partido = TournamentUIManager.PartidoActualJugando;

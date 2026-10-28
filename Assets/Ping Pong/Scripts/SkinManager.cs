@@ -31,7 +31,7 @@ public class SkinManager : MonoBehaviour
     public int precioSkinPorDefecto = 100;
     [Tooltip("Un precio por skin (índice = skin). Ej: [0, 100, 200...]. El 0 = gratis.")]
     public System.Collections.Generic.List<int> preciosSkins = new System.Collections.Generic.List<int>();
-    [Tooltip("Índices desbloqueados por defecto (ej: 0). El resto se compra.")]
+    [Tooltip("Índices desbloqueadas por defecto (ej: 0). El resto se compra.")]
     public System.Collections.Generic.List<int> skinsDesbloqueadasPorDefecto = new System.Collections.Generic.List<int>() { 0 };
 
     [Header("Raqueta del jugador")]
@@ -188,6 +188,34 @@ public class SkinManager : MonoBehaviour
     {
         ResetearScrollArriba();
         ActualizarBotonAccionSkin();
+
+        // Recuperar PreviewRotador fresco de la escena (puede haberse destruido
+        // al cambiar de escena al entrar a una partida y volver).
+        previewRotador = null;
+        var todosRotadores = FindObjectsOfType<PreviewRotador>(true);
+        if (todosRotadores.Length > 0)
+            previewRotador = todosRotadores[0];
+
+        // Volver a vincular botones manuales (listeners OnClick).
+        // Start() solo corre una vez; al volver de una partida los listeners
+        // pueden estar apuntando a instancias viejas o haberse perdido.
+        VincularBotonesManuales();
+
+        // Asegurar índice válido
+        if (skinSeleccionada < 0 || skinSeleccionada >= skinsPrefabs.Count)
+            skinSeleccionada = 0;
+
+        // Forzar recreación del modelo 3D para reiniciar la rotación al volver al panel.
+        if (previewRotador != null)
+        {
+            var prefab = skinsPrefabs[skinSeleccionada];
+            if (prefab != null)
+                previewRotador.MostrarPrefab(prefab);
+        }
+
+        // SeleccionarSkin aplica material y actualiza UI.
+        SeleccionarSkin(skinSeleccionada);
+
         if (EconomyManager.Instance != null)
         {
             EconomyManager.Instance.OnPollocoinsChanged -= RefrescarBotonSkinPorSaldo;
@@ -199,6 +227,33 @@ public class SkinManager : MonoBehaviour
     {
         if (EconomyManager.Instance != null)
             EconomyManager.Instance.OnPollocoinsChanged -= RefrescarBotonSkinPorSaldo;
+    }
+
+    /// <summary>
+    /// Refuerza la referencia al PreviewRotador y vuelve a instanciar el modelo 3D
+    /// de la skin seleccionada. Llama al volver de una partida para garantizar que
+    /// el preview gira de nuevo aunque OnEnable() no se haya disparado.
+    /// </summary>
+    public void RefrescarPreview()
+    {
+        // Recuperar PreviewRotador fresco de la escena (puede haberse destruido
+        // al cambiar de escena al entrar a una partida y volver).
+        previewRotador = null;
+        var todosRotadores = FindObjectsOfType<PreviewRotador>(true);
+        if (todosRotadores.Length > 0)
+            previewRotador = todosRotadores[0];
+
+        // Asegurar índice válido
+        if (skinSeleccionada < 0 || skinSeleccionada >= skinsPrefabs.Count)
+            skinSeleccionada = 0;
+
+        // Forzar recreación del modelo 3D para reiniciar la rotación.
+        if (previewRotador != null)
+        {
+            var prefab = skinsPrefabs[skinSeleccionada];
+            if (prefab != null)
+                previewRotador.MostrarPrefab(prefab);
+        }
     }
 
     void RefrescarBotonSkinPorSaldo(int _) => ActualizarBotonAccionSkin();
@@ -257,7 +312,7 @@ public class SkinManager : MonoBehaviour
 
     /// <summary>
     /// Botón principal del panel derecho:
-    /// a) Bloqueado -&gt; "BUY" + "$XXX Pollocoins". b) Desbloqueado -&gt; "EQUIP". c) Equipado -&gt; "EQUIPPED".
+    /// a) Bloqueado → "BUY" + "$XXX Pollocoins". b) Desbloqueado → "EQUIP". c) Equipado → "EQUIPPED".
     /// </summary>
     public void ActualizarBotonAccionSkin()
     {

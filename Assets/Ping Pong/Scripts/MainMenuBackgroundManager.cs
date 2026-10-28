@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
 /// Fondo dinámico del menú: partido CPU vs CPU en cámara cinemática,
@@ -324,6 +325,19 @@ public class MainMenuBackgroundManager : MonoBehaviour
         GuardarEstadoDemo(gm);
         // Jefes/habilidades OFF durante el demo: sin magias de fondo.
         DesactivarJefesYHabilidades();
+        // Re-habilitar el Image del botón HAB (ApagarPorNombre("Habilidad") lo desactiva
+        // al buscar objetos con "Habilidad" en el nombre). Sin esto el botón queda sin fondo.
+        var btnHabilidad = GameObject.Find("Btn_Habilidades");
+        if (btnHabilidad != null)
+        {
+            var img = btnHabilidad.GetComponent<Image>();
+            if (img != null)
+            {
+                img.enabled = true;
+                if (img.sprite == null)
+                    img.color = new Color(0.2f, 0.6f, 1f, 1f);
+            }
+        }
         if (mapaAleatorioAlEntrar && MapManager.Instance != null)
             MapManager.Instance.MostrarMapaAleatorioDeFondo();
         if (gameplayCamera != null) gameplayCamera.enabled = false;
@@ -334,6 +348,13 @@ public class MainMenuBackgroundManager : MonoBehaviour
             menuCamera.transform.LookAt(centro);
         }
         if (menuCamera != null) menuCamera.enabled = true;
+        // Reactivar la cámara de preview de skins (se desactiva al entrar a partida en SalirDelDemoHaciaPartida).
+        var camPreview = GameObject.Find("Camara_PreviewSkin");
+        if (camPreview != null)
+        {
+            var cam = camPreview.GetComponent<Camera>();
+            if (cam != null) cam.enabled = true;
+        }
         ActivarDemoCPU(gm);
         if (corrutinaSaqueDemo != null) StopCoroutine(corrutinaSaqueDemo);
         corrutinaSaqueDemo = StartCoroutine(SaqueDemoDiferido());

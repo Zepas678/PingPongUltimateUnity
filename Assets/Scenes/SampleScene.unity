@@ -13616,7 +13616,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bossData:
-    id: 3
+    id: 2
     nombre: Mirage
     titulo: Maestro de las Ilusiones
     descripcion: "Especialista en enga\xF1o visual. Genera pelotas falsas y clones
@@ -15772,7 +15772,7 @@ MonoBehaviour:
     posicion: {x: -20.3, y: 40, z: 163.4}
     escala: {x: 348, y: 94, z: 6}
     rotacion: {x: 0, y: 0, z: 0}
-    skybox: {fileID: 0}
+    skybox: {fileID: 2100000, guid: 01f4eb1c73693428d923f1520032e7f9, type: 2}
     velocidadSkybox: 0
     spriteImagen: {fileID: 0}
     precio: 100
@@ -15787,7 +15787,7 @@ MonoBehaviour:
     posicion: {x: -20.3, y: 40, z: 163.4}
     escala: {x: 348, y: 94, z: 6}
     rotacion: {x: 0, y: 0, z: 0}
-    skybox: {fileID: 0}
+    skybox: {fileID: 2100000, guid: 2d796ced94d61438fbab81b194038162, type: 2}
     velocidadSkybox: 0
     spriteImagen: {fileID: 0}
     precio: 30
@@ -15802,7 +15802,7 @@ MonoBehaviour:
     posicion: {x: -20.3, y: 40, z: 163.4}
     escala: {x: 348, y: 94, z: 6}
     rotacion: {x: 0, y: 0, z: 0}
-    skybox: {fileID: 0}
+    skybox: {fileID: 2100000, guid: 01f4eb1c73693428d923f1520032e7f9, type: 2}
     velocidadSkybox: 0
     spriteImagen: {fileID: 0}
     precio: 100
@@ -15847,7 +15847,7 @@ MonoBehaviour:
     posicion: {x: -10.8, y: -64.8, z: -7.6}
     escala: {x: 6, y: 6, z: 5.5}
     rotacion: {x: 0, y: 180, z: 0}
-    skybox: {fileID: 0}
+    skybox: {fileID: 2100000, guid: 2d796ced94d61438fbab81b194038162, type: 2}
     velocidadSkybox: 0
     spriteImagen: {fileID: 0}
     precio: 100
@@ -15877,7 +15877,7 @@ MonoBehaviour:
     posicion: {x: 82.6, y: 40, z: 163.4}
     escala: {x: 348, y: 94, z: 6}
     rotacion: {x: -90, y: 0, z: -90}
-    skybox: {fileID: 0}
+    skybox: {fileID: 2100000, guid: 01f4eb1c73693428d923f1520032e7f9, type: 2}
     velocidadSkybox: 0
     spriteImagen: {fileID: 0}
     precio: 0
@@ -18281,7 +18281,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 4, y: -6.9999084}
+  m_AnchoredPosition: {x: 4, y: -6.999878}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &665665626
@@ -18506,7 +18506,7 @@ MonoBehaviour:
   recompensaTorneoSemifinal: 350
   recompensaTorneoFinal: 500
   recompensaTorneoDerrota: 10
-  recompensaJefeZeus: 200
+  recompensaJefeZeus: 400
   recompensaJefeColossus: 150
   recompensaJefeMirage: 300
   recompensaJefeGenerico: 150
@@ -20222,7 +20222,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bossData:
-    id: 2
+    id: 1
     nombre: Colossus
     titulo: La Fortaleza Inquebrantable
     descripcion: "Raqueta gigante de alta resistencia. Resiste golpes \xE9picos y
@@ -20246,8 +20246,8 @@ MonoBehaviour:
       desbloqueadoPorDefecto: 0
       idUnico: 1
       tipoDesbloqueo: 1
-      idJefeRequerido: 1
-      nombreJefeRequerido: Colossus
+      idJefeRequerido: 
+      nombreJefeRequerido: 
   combateActivo: 0
   derrotado: 0
   gameManager: {fileID: 686527993}
@@ -29317,7 +29317,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 0.5}
   m_AnchorMax: {x: 1, y: 0.5}
-  m_AnchoredPosition: {x: 53.00049, y: -207}
+  m_AnchoredPosition: {x: 53.000366, y: -207}
   m_SizeDelta: {x: 250, y: 300}
   m_Pivot: {x: 1, y: 0.5}
 --- !u!1 &1009161915
@@ -51885,7 +51885,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bossData:
-    id: 1
+    id: 0
     nombre: Zeus
     titulo: "Se\xF1or del Trueno"
     descripcion: Teletransporta la pelota cuando va hacia el jugador

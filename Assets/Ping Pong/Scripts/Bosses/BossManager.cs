@@ -1792,6 +1792,18 @@ public class BossManager : MonoBehaviour
         botonCombatir.interactable = EsJefeDesbloqueado(jefe);
     }
 
+    /// <summary>Verifica si un jefe está derrotado por nombre (estado real en memoria).</summary>
+    public bool EstaJefeDerrotado(string nombreJefe)
+    {
+        if (bosses == null || string.IsNullOrEmpty(nombreJefe)) return false;
+        foreach (var b in bosses)
+        {
+            if (b != null && string.Equals(NormalizarNombreJefe(b.nombre), NormalizarNombreJefe(nombreJefe), System.StringComparison.OrdinalIgnoreCase))
+                return b.derrotado;
+        }
+        return false;
+    }
+
     // ──────────────────────────────────────────────
     // Progreso / desbloqueo de jefes (PlayerPrefs)
     // ──────────────────────────────────────────────
@@ -1875,10 +1887,16 @@ public class BossManager : MonoBehaviour
         string clave = ClaveBossCompletado(jefe);
         PlayerPrefs.SetInt(clave, 1);
         // Opción 2 (reclamar en tienda): JEFE_DERROTADO_[idJefe] = 1.
-        string idJefe = NormalizarNombreJefe(jefe.nombre).Trim().ToLowerInvariant();
-        PlayerPrefs.SetInt(MapManager.ClaveJefeDerrotado(idJefe), 1);
+        // Guardar múltiples variantes para que coincida con idJefeRequerido /
+        // nombreJefeRequerido del mapa, con o sin prefijo "Boss".
+        string idJefeNormalizado = NormalizarNombreJefe(jefe.nombre).Trim().ToLowerInvariant();
+        PlayerPrefs.SetInt(MapManager.ClaveJefeDerrotado(idJefeNormalizado), 1);
+        PlayerPrefs.SetInt(MapManager.ClaveJefeDerrotado(jefe.nombre), 1);
+        // Variante con prefijo "Boss" si el nombre normalizado no lo trae.
+        if (!idJefeNormalizado.StartsWith("boss"))
+            PlayerPrefs.SetInt(MapManager.ClaveJefeDerrotado("Boss" + idJefeNormalizado), 1);
         PlayerPrefs.Save();
-        Debug.Log($"[BossManager] Victoria registrada para clave: {clave} + {MapManager.ClaveJefeDerrotado(idJefe)}");
+        Debug.Log($"[BossManager] Victoria registrada para '{jefe.nombre}' → claves: {MapManager.ClaveJefeDerrotado(idJefeNormalizado)}, {MapManager.ClaveJefeDerrotado(jefe.nombre)}" + (idJefeNormalizado.StartsWith("boss") ? "" : $", {MapManager.ClaveJefeDerrotado("Boss" + idJefeNormalizado)}"));
         jefe.derrotado = true;
         if (bosses != null)
         {
