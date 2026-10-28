@@ -43653,7 +43653,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   initialSpeed: 30
   speedIncreasePerHit: 2.5
-  maxSpeed: 260
+  maxSpeed: 200
   racketLaunchUpward: 10
   minLaunchUpward: 1.5
   maxHeightAboveTable: 15
