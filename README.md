@@ -25,11 +25,13 @@
 •
 [📸 Screenshots](#-screenshots)
 •
-[⚙️ Installation](#️-installation)
+[🎮 Play free](https://zepas678.itch.io/pingpong-ultimate-demo), (https://gamejolt.net/?token=dUsBCzFGDpKZeq5RTxVcRRdfpjCC9C)
 •
 [🏗️ Project Structure](#️-project-structure)
 •
 [🚀 Roadmap](#-roadmap)
+
+
 
 
 </div>
