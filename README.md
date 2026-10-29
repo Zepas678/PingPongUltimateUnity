@@ -25,7 +25,7 @@
 •
 [📸 Screenshots](#-screenshots)
 •
-[🎮 Play free](https://zepas678.itch.io/pingpong-ultimate-demo), (https://gamejolt.net/?token=dUsBCzFGDpKZeq5RTxVcRRdfpjCC9C)
+[🎮 Play free](https://zepas678.itch.io/pingpong-ultimate-demo)
 •
 [🏗️ Project Structure](#️-project-structure)
 •
